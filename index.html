@@ -391,8 +391,13 @@ body.adm .wa-fab{display:none}
       <div class="field"><label for="fname">שם פרטי</label><input id="fname" autocomplete="given-name" maxlength="40"></div>
       <div class="field"><label for="fphone">טלפון נייד</label><input id="fphone" type="tel" inputmode="tel" autocomplete="tel" dir="ltr" placeholder="050-1234567" maxlength="17">
         <div class="msg" id="phoneMsg" aria-live="polite"></div></div>
+      <div id="otpWrap" hidden>
+        <div class="field"><label for="fcode">הקוד שקיבלת בוואטסאפ</label><input id="fcode" inputmode="numeric" autocomplete="one-time-code" maxlength="4" dir="ltr" placeholder="• • • •" style="letter-spacing:.5em;font-size:24px;font-weight:800"></div>
+        <button class="textlink" id="resendBtn" type="button" style="font-size:15px">לא קיבלתי קוד, שלחו שוב</button>
+      </div>
+      <div class="msg" id="bookMsg" aria-live="polite" style="text-align:center"></div>
       <button class="cta md" id="toConfirm" type="submit" disabled>שליחת בקשה לתור</button>
-      <p class="fine">הבקשה נשלחת מהוואטסאפ שלך, כך <span class="bizname">אריאל</span> רואה שהמספר אמיתי. התור נסגר רק אחרי שהוא מאשר לך בחזרה.</p>
+      <p class="fine" id="fineTxt">הבקשה נשלחת מהוואטסאפ שלך, כך <span class="bizname">אריאל</span> רואה שהמספר אמיתי. התור נסגר רק אחרי שהוא מאשר לך בחזרה.</p>
     </form>
   </section>
 
@@ -408,9 +413,9 @@ body.adm .wa-fab{display:none}
   <!-- CONFIRM -->
   <section class="screen done" id="sDone" hidden aria-live="polite">
     <svg class="check" viewBox="0 0 90 90" aria-hidden="true"><circle cx="45" cy="45" r="40"/><path d="M27 46 l12 12 l24 -26"/></svg>
-    <h2>הבקשה מוכנה</h2>
+    <h2 id="doneTitle">הבקשה מוכנה</h2>
     <div class="ticket" id="ticket2" style="margin:0"></div>
-    <p class="note">התור עוד לא נקבע. שלחו את הבקשה מהוואטסאפ של המספר שהזנתם. <span class="bizname">אריאל</span> יבדוק ויאשר לכם בחזרה בוואטסאפ, ורק אז התור סגור.</p>
+    <p class="note" id="doneNote">התור עוד לא נקבע. שלחו את הבקשה מהוואטסאפ של המספר שהזנתם. <span class="bizname">אריאל</span> יבדוק ויאשר לכם בחזרה בוואטסאפ, ורק אז התור סגור.</p>
     <a class="cta md wa" id="waBtn" href="#" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 24 24"><path d="M3 21l1.7-4.6A8.5 8.5 0 1 1 8 19.6z"/><path d="M9 9.5c.3 2 1.8 3.8 4 4.7l1.2-1.1 2 1-.4 1.6c-3.6.3-7.4-3.2-7.6-6.9l1.6-.4.9 2z"/></svg>שלח בוואטסאפ</a>
     <button class="ghost" id="copyBtn" type="button">העתק הודעה</button>
     <a class="ghost" id="gcalBtn" href="#" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>הוספה ליומן Google</a>
@@ -420,7 +425,7 @@ body.adm .wa-fab{display:none}
       <label for="copyText" class="sr">הודעה להעתקה</label>
       <textarea id="copyText" class="copybox" readonly></textarea>
     </div>
-    <p class="today" style="margin:0">הוואטסאפ לא נפתח? שלחו את ההודעה למספר <b dir="ltr" id="waPlain"></b></p>
+    <p class="today" id="waPlainRow" style="margin:0">הוואטסאפ לא נפתח? שלחו את ההודעה למספר <b dir="ltr" id="waPlain"></b></p>
     <button class="textlink" id="editBtn" type="button">חזרה לעריכה</button>
   </section>
 
@@ -441,6 +446,7 @@ body.adm .wa-fab{display:none}
     <div class="tabs" role="tablist" id="tabs">
       <button role="tab" data-t="cal" type="button">יומן</button>
       <button role="tab" data-t="cli" type="button">לקוחות</button>
+      <button role="tab" data-t="wa" type="button">וואטסאפ</button>
       <button role="tab" data-t="hours" type="button">שעות</button>
       <button role="tab" data-t="vac" type="button">חופשות</button>
       <button role="tab" data-t="svc" type="button">שירותים</button>
@@ -457,6 +463,7 @@ body.adm .wa-fab{display:none}
         <div class="field"><label for="lgTok">מפתח GitHub (פעם אחת בכל מכשיר)</label><input id="lgTok" type="password" dir="ltr" autocomplete="off" placeholder="github_pat_…"></div>
         <p class="who" style="margin-top:-6px">המפתח נשמר במכשיר הזה בלבד, מוצפן בסיסמה שלך.</p>
       </div>
+      <div class="field"><label for="lgUser">שם משתמש</label><input id="lgUser" dir="ltr" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="ariel"></div>
       <div class="field"><label for="lgPass">סיסמה</label><input id="lgPass" type="password" autocomplete="current-password"></div>
       <div class="field" id="pass2Wrap"><label for="lgPass2">סיסמה שוב (בפעם הראשונה)</label><input id="lgPass2" type="password" autocomplete="new-password"></div>
       <button class="btn primary" style="width:100%" id="lgBtn" type="submit">כניסה</button>
@@ -657,7 +664,7 @@ function renderMine(){
   $("mineList").innerHTML=l.map(function(r){
     var past=(r.day+" "+r.time)<now;
     return '<div class="svc" style="cursor:default'+(past?';opacity:.55':'')+'"><span><span class="nm">'+esc(dateLong(r.day))+' · '+esc(r.time)+'</span><span class="du">'+esc(r.svc)+'</span>'+
-      '<span class="why" style="color:'+(past?'var(--muted)':'var(--gold-lt)')+'">'+(past?'עבר':'נשלח בוואטסאפ, מחכה לאישור של '+esc(cfg.biz.name))+'</span></span><span class="pr">'+esc(r.total)+' ₪</span></div>';
+      '<span class="why" style="color:'+(past?'var(--muted)':'var(--gold-lt)')+'">'+(past?'עבר':(r.ok?'נקבע ✓':'נשלח בוואטסאפ, מחכה לאישור של '+esc(cfg.biz.name)))+'</span></span><span class="pr">'+esc(r.total)+' ₪</span></div>';
   }).join("")+'<p class="hint" style="text-align:center">הרשימה נשמרת רק בדפדפן הזה. אם תחליף טלפון או תמחק נתוני גלישה, היא תתאפס.</p>';
 }
 $("myLink").addEventListener("click",function(){renderMine();show("sMine",1)});
@@ -700,19 +707,76 @@ $("svcs").addEventListener("click",function(e){var b=e.target.closest(".svc");if
 $("addons").addEventListener("click",function(e){var b=e.target.closest(".chip");if(!b||b.disabled)return;
   var id=b.dataset.a,i=sel.addons.indexOf(id);if(i>-1)sel.addons.splice(i,1);else sel.addons.push(id);renderSvcs()});
 $("svcNext").addEventListener("click",function(){if(!sel.svc)return;$("ticket").innerHTML=ticketHtml(false);formChanged();show("sDet",1)});
+/* ---- automatic booking through the WhatsApp bot (falls back to the manual WhatsApp message) ---- */
+var botOn=false,otpSent=false,botBusy=false;
+function botCall(path,data){
+  var ctl=window.AbortController?new AbortController():null,tm=setTimeout(function(){if(ctl)ctl.abort()},15000);
+  return fetch(cfg.botUrl+path,{method:data?"POST":"GET",headers:data?{"Content-Type":"application/json"}:{},body:data?JSON.stringify(data):undefined,signal:ctl?ctl.signal:undefined})
+    .then(function(r){clearTimeout(tm);return r.json().catch(function(){return {}}).then(function(j){j._status=r.status;return j})});
+}
+function checkBot(){
+  if(!cfg.botUrl){botOn=false;setBookUi();return}
+  botCall("/health").then(function(j){botOn=j.ok&&j.wa==="open";setBookUi()}).catch(function(){botOn=false;setBookUi()});
+}
+function setBookUi(){
+  $("otpWrap").hidden=!(botOn&&otpSent);
+  $("fineTxt").innerHTML=botOn?"נשלח אליך קוד בוואטסאפ כדי לוודא שהמספר שלך. אחרי האישור התור נקבע מיד, ותקבל אישור ותזכורת.":"הבקשה נשלחת מהוואטסאפ שלך, כך <span class=\"bizname\">"+esc(cfg.biz.name)+"</span> רואה שהמספר אמיתי. התור נסגר רק אחרי שהוא מאשר לך בחזרה.";
+  $("toConfirm").textContent=botOn?(otpSent?"אישור וקביעת התור":"שלחו לי קוד בוואטסאפ"):"שליחת בקשה לתור";
+  formChanged();
+}
+function bookMsg(t,ok){var m=$("bookMsg");m.textContent=t||"";m.className="msg"+(t?(ok?" ok":" bad"):"")}
 function formChanged(){sel.name=$("fname").value;sel.phone=$("fphone").value;phoneFeedback();
-  $("toConfirm").disabled=!(sel.name.trim()&&phoneOk(sel.phone)&&sel.time&&sel.svc)}
-$("fname").addEventListener("input",formChanged);$("fphone").addEventListener("input",formChanged);
+  var base=sel.name.trim()&&phoneOk(sel.phone)&&sel.time&&sel.svc;
+  if(botOn&&otpSent)base=base&&/^\d{4}$/.test($("fcode").value.trim());
+  $("toConfirm").disabled=!base||botBusy}
+$("fname").addEventListener("input",formChanged);
+$("fphone").addEventListener("input",function(){if(otpSent){otpSent=false;$("fcode").value="";setBookUi()}formChanged()});
+$("fcode").addEventListener("input",function(){this.value=this.value.replace(/\D/g,"").slice(0,4);formChanged();if(this.value.length===4&&!botBusy)$("form").requestSubmit&&$("form").requestSubmit()});
+function sendOtp(){
+  botBusy=true;formChanged();bookMsg("שולח קוד…",true);
+  return botCall("/otp",{phone:sel.phone}).then(function(j){
+    botBusy=false;
+    if(j.ok){otpSent=true;setBookUi();bookMsg("שלחנו לך קוד בוואטסאפ ✓",true);setTimeout(function(){try{$("fcode").focus()}catch(_){}},100);return}
+    if(j.error==="nowa")bookMsg("המספר הזה לא רשום בוואטסאפ. בדקו את המספר.");
+    else if(j.error==="rate")bookMsg("יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.");
+    else{botOn=false;setBookUi();bookMsg("השליחה האוטומטית לא זמינה כרגע. אפשר לשלוח בקשה בוואטסאפ.")}
+    formChanged();
+  }).catch(function(){botBusy=false;botOn=false;setBookUi();bookMsg("השליחה האוטומטית לא זמינה כרגע. אפשר לשלוח בקשה בוואטסאפ.")});
+}
+$("resendBtn").addEventListener("click",function(){if(!botBusy)sendOtp()});
+function bookNow(){
+  botBusy=true;formChanged();bookMsg("קובע את התור…",true);
+  botCall("/book",{phone:sel.phone,code:$("fcode").value.trim(),name:sel.name.trim(),day:sel.day,time:sel.time,svc:sel.svc}).then(function(j){
+    botBusy=false;
+    if(j.ok){bookMsg("");cfg.busy.push({d:sel.day,s:sel.time,m:(svcById(sel.svc)||{}).dur||30});showDone(true);return}
+    var e=j.error;
+    if(e==="code")bookMsg("הקוד לא נכון. בדקו ונסו שוב.");
+    else if(e==="expired"){otpSent=false;setBookUi();bookMsg("הקוד פג תוקף. שלחו קוד חדש.")}
+    else if(e==="taken"){bookMsg("השעה הזו נתפסה הרגע. בחרו שעה אחרת.");cfg.busy.push({d:sel.day,s:sel.time,m:30});sel.time=null;otpSent=false;setTimeout(function(){renderSlots();show("sTime",-1)},1500)}
+    else if(e==="limit")bookMsg("כבר יש למספר הזה תורים קרובים. לשינוי כתבו ל"+cfg.biz.name+".");
+    else if(e==="closed")bookMsg("השעה הזו כבר לא פתוחה להזמנה. בחרו שעה אחרת.");
+    else bookMsg("משהו השתבש. נסו שוב.");
+    formChanged();
+  }).catch(function(){botBusy=false;bookMsg("אין חיבור. נסו שוב.");formChanged()});
+}
 $("form").addEventListener("submit",function(e){e.preventDefault();formChanged();if($("toConfirm").disabled)return;
+  if(botOn){if(!otpSent)sendOtp();else bookNow();return}
+  showDone(false);
+});
+function showDone(auto){
   var text=buildMessage();
   $("ticket2").innerHTML=ticketHtml(true);
   $("waBtn").href="https://wa.me/"+waIntl(cfg.wa)+"?text="+encodeURIComponent(text);
   $("waPlain").textContent=cfg.wa;$("copyText").value=text;$("copyFallback").hidden=true;$("copyBtn").textContent="העתק הודעה";
   $("gcalBtn").href=calLink();$("icsBtn").hidden=false;
-  var sv=svcById(sel.svc);mineAdd({day:sel.day,time:sel.time,svc:sv.name,total:total(),sent:Date.now()});
+  var sv=svcById(sel.svc);mineAdd({day:sel.day,time:sel.time,svc:sv.name,total:total(),sent:Date.now(),ok:!!auto});
+  $("doneTitle").textContent=auto?"התור נקבע ✓":"הבקשה מוכנה";
+  $("doneNote").textContent=auto?"שלחנו לך אישור בוואטסאפ, ותקבל תזכורת לפני התור. נתראה!":"התור עוד לא נקבע. שלחו את הבקשה מהוואטסאפ של המספר שהזנתם. "+cfg.biz.name+" יבדוק ויאשר לכם בחזרה בוואטסאפ, ורק אז התור סגור.";
+  $("waBtn").hidden=auto;$("copyBtn").hidden=auto;$("waPlainRow").hidden=auto;$("editBtn").hidden=auto;if(auto)$("copyFallback").hidden=true;
+  if(auto){otpSent=false;$("fcode").value="";setBookUi()}
   var c=$("sDone").querySelector(".check"),n=c.cloneNode(true);c.parentNode.replaceChild(n,c);
   show("sDone",1);
-});
+}
 $("editBtn").addEventListener("click",function(){show("sDet",-1)});
 $("copyBtn").addEventListener("click",function(){
   var text=$("copyText").value,btn=this;
@@ -744,7 +808,7 @@ function applyConfig(c){
   renderBiz();if(current==="sDay")renderDays();if(current==="sTime")renderSlots();if(current==="sSvc")renderSvcs();
 }
 renderBiz();
-fetch("config.json?v="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.json():null}).then(applyConfig).catch(function(){});
+fetch("config.json?v="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.json():null}).then(function(c){applyConfig(c);checkBot()}).catch(function(){});
 
 /* =================== OWNER MODE =================== */
 var user=null,db=null,uid=null,appts=[],draft=null,dirty=false,curTab="cal",armed=null;
@@ -788,17 +852,44 @@ async function ghPut(path,text,msg){
   var body={message:msg,content:utf8b64(text),branch:GH.branch};if(shas[path])body.sha=shas[path];
   var j=await ghReq("PUT",path,body);shas[path]=j.content.sha;
 }
+/* data.enc.json v2: {v:2, keys:{user: password-wrapped data key}, iv, ct}. v1 (one password) is upgraded at first login. */
+var dek=null,dekRaw=null,keysMap={},ghUser=null,needsSave=false;
+async function encryptBytes(pass,bytes){
+  var salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),k=await deriveKey(pass,salt);
+  var ct=await crypto.subtle.encrypt({name:"AES-GCM",iv:iv},k,bytes);return {salt:b64e(salt),iv:b64e(iv),ct:b64e(ct)};
+}
+async function decryptBytes(pass,o){var k=await deriveKey(pass,b64d(o.salt));return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(o.iv)},k,b64d(o.ct)))}
+async function setDek(raw){dekRaw=raw;dek=await crypto.subtle.importKey("raw",raw,"AES-GCM",false,["encrypt","decrypt"])}
+async function newDek(){await setDek(crypto.getRandomValues(new Uint8Array(32)));keysMap={};keysMap[ghUser]=await encryptBytes(ghPass,dekRaw);needsSave=true}
 async function loadStore(){
   var t=await ghGet("data.enc.json");
-  if(!t){store={};return}
-  store=JSON.parse(await decryptStr(ghPass,JSON.parse(t))).docs||{};
+  if(!t){store={};if(!dek)await newDek();return}
+  var o=JSON.parse(t);
+  if(o.v===2){
+    keysMap=o.keys||{};
+    if(!dek){var k=keysMap[ghUser];if(!k){var e=new Error("nouser");e.code="nouser";throw e}
+      try{await setDek(await decryptBytes(ghPass,k))}catch(_){var e2=new Error("pass");e2.code="pass";throw e2}}
+    var pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(o.iv)},dek,b64d(o.ct));
+    store=JSON.parse(new TextDecoder().decode(pt)).docs||{};
+  }else{
+    try{store=JSON.parse(await decryptStr(ghPass,o)).docs||{}}catch(_){var e3=new Error("pass");e3.code="pass";throw e3}
+    if(!dek)await newDek();
+  }
+}
+async function dataFileText(){
+  var iv=crypto.getRandomValues(new Uint8Array(12));
+  var ct=await crypto.subtle.encrypt({name:"AES-GCM",iv:iv},dek,new TextEncoder().encode(JSON.stringify({docs:store})));
+  return JSON.stringify({v:2,keys:keysMap,iv:b64e(iv),ct:b64e(ct)});
 }
 async function loadPubCfg(){var t=await ghGet("config.json");pubCfg=t?JSON.parse(t):clone(cfg);applyConfig(clone(pubCfg))}
 function busyFromStore(){var today=ymd(new Date());return Object.keys(store).map(function(k){return store[k]}).filter(function(a){return a.date&&a.time&&a.date>=today}).map(function(a){return {d:a.date,s:a.time,m:+a.dur||0}})}
-async function saveConfig(obj,msg){
-  try{await ghPut("config.json",JSON.stringify(obj),msg)}
-  catch(e){if(e.status===409||e.status===422){await ghGet("config.json");await ghPut("config.json",JSON.stringify(obj),msg)}else throw e}
-  pubCfg=obj;
+/* read the latest config, change only our part, write; the bot writes botUrl/botAt itself */
+async function saveConfig(patch,msg){
+  for(var i=0;i<3;i++){
+    var t=await ghGet("config.json"),latest=t?JSON.parse(t):{},obj=patch(latest);
+    try{await ghPut("config.json",JSON.stringify(obj),msg);pubCfg=obj;return obj}
+    catch(e){if((e.status===409||e.status===422)&&i<2)continue;throw e}
+  }
 }
 /* one change at a time; on a conflict re-read the other device's data and apply the change again */
 var saveChain=Promise.resolve();
@@ -806,11 +897,11 @@ function mutate(fn,msg){
   saveChain=saveChain.then(async function(){
     fn(store);
     for(var attempt=0;attempt<2;attempt++){
-      try{await ghPut("data.enc.json",JSON.stringify(await encryptStr(ghPass,JSON.stringify({docs:store}))),msg);break}
+      try{await ghPut("data.enc.json",await dataFileText(),msg);needsSave=false;break}
       catch(e){if((e.status===409||e.status===422)&&attempt===0){await loadStore();fn(store)}else throw e}
     }
     emit();
-    var c=clone(pubCfg||cfg);c.busy=busyFromStore();await saveConfig(c,"busy times");
+    await saveConfig(function(l){l.busy=busyFromStore();return l},"busy times");
   });
   return saveChain;
 }
@@ -819,23 +910,29 @@ var ghDb={collection:function(){return {
   doc:function(id){return {set:function(d){return mutate(function(st){st[id]=d},"update "+id)},delete:function(){return mutate(function(st){delete st[id]},"delete "+id)}}},
   onSnapshot:function(f){listeners.push(f);emit();return function(){}}
 }}};
-var ghArtifact={publish:async function(files){var o=JSON.parse(files["config.json"].content);await saveConfig(o,"settings")}};
+var ghArtifact={publish:async function(files){var o=JSON.parse(files["config.json"].content);await saveConfig(function(l){o.botUrl=l.botUrl;o.botAt=l.botAt;o.busy=busyFromStore();return o},"settings")}};
+setInterval(function(){if(ghToken&&!$("admin").hidden&&!editingNote)loadStore().then(emit).catch(function(){})},60000);
 
 /* ---- login ---- */
-function storedTok(){try{return JSON.parse(localStorage.getItem(TOK_KEY)||"null")}catch(_){return null}}
+function tokKey(u){return TOK_KEY+":"+String(u||"").trim().toLowerCase()}
+function lastUser(){try{return localStorage.getItem(TOK_KEY+":last")||""}catch(_){return ""}}
+function storedTok(u){try{return JSON.parse(localStorage.getItem(tokKey(u))||localStorage.getItem(TOK_KEY)||"null")}catch(_){return null}}
 function showLogin(){
-  var has=!!storedTok();
+  if(!$("lgUser").value)$("lgUser").value=lastUser();
+  var has=!!storedTok($("lgUser").value);
   $("tokWrap").hidden=has;$("pass2Wrap").hidden=has;$("lgReset").hidden=!has;$("lgMsg").textContent="";$("lgPass").value="";$("lgPass2").value="";
   $("login").hidden=false;document.body.style.overflow="hidden";document.body.classList.add("adm");
-  setTimeout(function(){try{(has?$("lgPass"):$("lgTok")).focus()}catch(_){}},50);
+  setTimeout(function(){try{(!$("lgUser").value?$("lgUser"):has?$("lgPass"):$("lgTok")).focus()}catch(_){}},50);
 }
+$("lgUser").addEventListener("change",function(){var has=!!storedTok(this.value);$("tokWrap").hidden=has;$("pass2Wrap").hidden=has;$("lgReset").hidden=!has});
 function hideLogin(){$("login").hidden=true;document.body.style.overflow="";document.body.classList.remove("adm")}
 $("loginClose").addEventListener("click",hideLogin);
-$("lgReset").addEventListener("click",function(){try{localStorage.removeItem(TOK_KEY)}catch(_){};showLogin()});
+$("lgReset").addEventListener("click",function(){try{localStorage.removeItem(TOK_KEY);localStorage.removeItem(tokKey($("lgUser").value))}catch(_){};showLogin()});
 $("loginForm").addEventListener("submit",async function(e){
-  e.preventDefault();var m=$("lgMsg"),btn=$("lgBtn"),pass=$("lgPass").value,st=storedTok();
+  e.preventDefault();var m=$("lgMsg"),btn=$("lgBtn"),pass=$("lgPass").value,user=$("lgUser").value.trim().toLowerCase(),st=storedTok(user);
   function fail(t){m.textContent=t;m.className="msg bad";btn.disabled=false}
   if(!window.crypto||!crypto.subtle)return fail("הדפדפן הזה לא תומך בהצפנה. נסה Chrome או Safari מעודכן.");
+  if(!/^[a-z0-9._-]{2,40}$/.test(user))return fail("שם משתמש: אותיות באנגלית, ספרות, נקודה או מקף.");
   if(pass.length<6)return fail("סיסמה של 6 תווים לפחות.");
   btn.disabled=true;m.textContent="מתחבר…";m.className="msg";
   try{
@@ -845,14 +942,15 @@ $("loginForm").addEventListener("submit",async function(e){
       if(pass!==$("lgPass2").value)return fail("שתי הסיסמאות לא זהות.");
       ghToken=tk;
     }
-    ghPass=pass;
+    ghPass=pass;ghUser=user;dek=null;dekRaw=null;keysMap={};
     try{await loadPubCfg()}catch(err){ghToken=null;return fail(err.status===401||err.status===403?"מפתח GitHub לא תקין או בלי הרשאה למאגר.":"אין חיבור ל-GitHub. נסה שוב.")}
-    try{await loadStore()}catch(err){ghToken=null;return fail("הסיסמה לא מתאימה לנתונים השמורים. השתמש באותה סיסמה כמו במכשיר הראשון.")}
-    if(!st){try{localStorage.setItem(TOK_KEY,JSON.stringify(await encryptStr(pass,ghToken)))}catch(_){}}
+    try{await loadStore()}catch(err){ghToken=null;return fail(err.code==="nouser"?"שם המשתמש לא קיים. משתמש מנהל יכול להוסיף אותו בלשונית כללי.":"שם משתמש או סיסמה שגויים.")}
+    try{localStorage.setItem(tokKey(user),JSON.stringify(await encryptStr(pass,ghToken)));localStorage.setItem(TOK_KEY+":last",user)}catch(_){}
+    if(needsSave)mutate(function(){},"secure data for users").catch(function(){});
     btn.disabled=false;hideLogin();db=ghDb;uid="admin";openAdmin("cal");
   }catch(err){fail("משהו השתבש. נסה שוב.")}
 });
-$("admLogout").addEventListener("click",function(){ghToken=null;ghPass=null;store={};appts=[];cmeta={};db=null;listeners=[];closeAdmin()});
+$("admLogout").addEventListener("click",function(){ghToken=null;ghPass=null;ghUser=null;dek=null;dekRaw=null;keysMap={};botKey=null;botStat=null;store={};appts=[];cmeta={};db=null;listeners=[];closeAdmin()});
 if(location.hash==="#admin")setTimeout(showLogin,300);
 async function connectDb(){
   if(!db)return;
@@ -872,7 +970,8 @@ function openAdmin(tab){
 function closeAdmin(){$("admin").hidden=true;$("pubbar").hidden=true;document.body.style.overflow="";document.body.classList.remove("adm");ssSet(null)}
 $("ownerLink").addEventListener("click",function(){if(ghToken)openAdmin("cal");else showLogin()});
 $("admClose").addEventListener("click",closeAdmin);
-$("tabs").addEventListener("click",function(e){var b=e.target.closest("button[data-t]");if(!b)return;curTab=b.dataset.t;ssSet(curTab);armed=null;renderTabs();renderTab()});
+$("tabs").addEventListener("click",function(e){var b=e.target.closest("button[data-t]");if(!b)return;curTab=b.dataset.t;ssSet(curTab);armed=null;renderTabs();renderTab();
+  clearInterval(botPoll);if(curTab==="wa"){refreshBot();botPoll=setInterval(function(){if(curTab==="wa"&&!$("admin").hidden)refreshBot();else clearInterval(botPoll)},5000)}});
 function renderTabs(){[].forEach.call($("tabs").children,function(b){b.setAttribute("aria-selected",String(b.dataset.t===curTab))})}
 function markDirty(){dirty=true;setStatus()}
 function setStatus(txt,cls){var s=$("pubStatus");
@@ -909,6 +1008,7 @@ function renderTab(){
     h+='<p class="who">שמות וטלפונים נשמרים רק בשטח הפרטי שלך. ללקוחות מתפרסמות רק השעות התפוסות.</p></div>';
   }
   else if(curTab==="cli"){h+=cliHtml()}
+  else if(curTab==="wa"){h+=waHtml()}
   else if(curTab==="hours"){
     h+='<div class="card"><h3>שעות פתיחה</h3>';
     draft.hours.forEach(function(x,i){
@@ -954,6 +1054,7 @@ function renderTab(){
       '<div class="field"><label for="gTag">מסר מרכזי</label><input id="gTag" data-g="biz.tagline" value="'+esc(g.biz.tagline)+'"></div>'+
       '<div class="field"><label for="gArea">כתובת / אזור</label><input id="gArea" data-g="biz.area" value="'+esc(g.biz.area)+'"></div>'+
       '<div class="field"><label for="gWa">מספר וואטסאפ לקבלת בקשות</label><input id="gWa" type="tel" dir="ltr" data-g="wa" value="'+esc(g.wa)+'"><div class="msg" id="gWaMsg"></div></div></div>'+
+      usersHtml()+
       '<div class="card"><h3>חוקי הזמנה</h3><div class="grid2">'+
       '<div class="field"><label for="gMode">פתיחת היומן</label><select id="gMode" data-g="openMode"><option value="biweekly"'+(g.openMode==="biweekly"?" selected":"")+'>כל שבועיים ביום שישי</option><option value="rolling"'+(g.openMode!=="biweekly"?" selected":"")+'>רציף, X ימים קדימה</option></select></div>'+
       '<div class="field"><label for="gAnchor">יום שישי של פתיחה (תאריך אחד)</label><input id="gAnchor" type="date" data-g="openAnchor" value="'+esc(g.openAnchor||"")+'"></div>'+
@@ -965,6 +1066,63 @@ function renderTab(){
   b.innerHTML=h;
   if(curTab==="gen")waCheck();
   if(curTab==="cal"){$("pasteBox").value=pasteVal;$("histPhone").value=histVal;renderHist()}
+}
+var BOT_DEF={otp:"הקוד שלך לקביעת תור אצל {biz}: *{code}*\nהקוד בתוקף ל-10 דקות.",confirm:"היי {name}, התור שלך נקבע ✅\n{service}\n{date} בשעה {time}\n📍 {area}\n\nהוספה ליומן: {cal}\n\nצריך לבטל או לשנות? כתבו ל{biz}: {adminPhone}",reminder:"היי {name}, תזכורת: התור שלך אצל {biz} היום בשעה {time} ✂️\n📍 {area}\nנתראה!",adminNew:"📅 תור חדש נקבע\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancel:"היי {name}, התור שלך ב{date} בשעה {time} בוטל. לקביעת תור חדש: {site}",autoReply:"שלום! זה מספר אוטומטי לאישורי תורים של {biz} 💈\nלקביעת תור: {site}\nלשאלות כתבו ל{biz}: {adminPhone}",reminderMin:60,notifyAdmin:true,sendConfirm:true,sendReminder:true,maxFuturePerPhone:2};
+var botStat=null,botKey=null,botPoll=null,qrLib=null;
+function botSettings(){draft.bot=Object.assign({},BOT_DEF,draft.bot||{});return draft.bot}
+async function getBotKey(){if(botKey)return botKey;var h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("ariel-bot:"+b64e(dekRaw)));botKey=Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,"0")}).join("");return botKey}
+async function botAdmin(path,data){
+  var u=(pubCfg&&pubCfg.botUrl)||cfg.botUrl;if(!u)throw new Error("nourl");
+  var r=await fetch(u+path,{method:data?"POST":"GET",headers:Object.assign({"X-Admin":await getBotKey()},data?{"Content-Type":"application/json"}:{}),body:data?JSON.stringify(data):undefined});
+  var j=await r.json().catch(function(){return {}});if(!r.ok){var e=new Error(j.error||("http "+r.status));e.status=r.status;throw e}return j;
+}
+function refreshBot(){
+  return loadPubCfg().catch(function(){}).then(function(){return botAdmin("/admin/status")}).then(function(j){botStat=j}).catch(function(e){botStat={err:e.status===401?"auth":"off"}}).then(function(){if(curTab==="wa"&&!$("admin").hidden&&!editingNote)renderTab()});
+}
+function loadQrLib(){
+  if(window.QRCode||qrLib)return qrLib||Promise.resolve();
+  qrLib=new Promise(function(ok){var sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";sc.onload=ok;sc.onerror=ok;document.head.appendChild(sc)});
+  return qrLib;
+}
+function drawQr(){var box=$("waQr");if(!box||!botStat||!botStat.qr)return;loadQrLib().then(function(){if(!window.QRCode||!$("waQr"))return;$("waQr").innerHTML="";new QRCode($("waQr"),{text:botStat.qr,width:240,height:240,colorDark:"#000",colorLight:"#fff"})})}
+function waHtml(){
+  var b=botSettings(),st=botStat,h='<div class="card"><h3>מצב הבוט</h3>';
+  if(!st)h+='<p class="who">בודק…</p>';
+  else if(st.err==="auth")h+='<p class="msg bad">הבוט פועל, אבל הסיסמה בקובץ ההגדרות שלו שונה מסיסמת הניהול.</p>';
+  else if(st.err)h+='<p class="msg bad">הבוט לא מחובר. ודא שהמחשב דלוק ושהבוט רץ (start-bot).</p>';
+  else{
+    var lab={open:"מחובר ✓",qr:"מחכה לסריקת QR",reconnecting:"מתחבר מחדש…",loggedout:"נותק, צריך לסרוק מחדש",starting:"מתחיל…"}[st.wa]||st.wa;
+    h+='<p><span class="badge'+(st.wa==="open"?'':' block')+'" style="font-size:14px;padding:3px 12px">'+esc(lab)+'</span>'+(st.me?' <span class="who" dir="ltr">+'+esc(st.me)+'</span>':'')+'</p>';
+    if(st.qr)h+='<p class="who">בטלפון של מספר הבוט: וואטסאפ ← הגדרות ← מכשירים מקושרים ← קישור מכשיר, וסרוק:</p><div id="waQr" style="background:#fff;padding:12px;border-radius:12px;width:264px;margin:0 auto"></div>';
+    h+='<div class="clia"><button class="btn" type="button" id="waTest">שלח הודעת בדיקה לאריאל</button>'+(st.wa==="open"?'<button class="btn danger" type="button" id="waLogout">נתק את המספר</button>':'')+'</div><div class="msg" id="waMsg"></div>';
+  }
+  h+='</div>';
+  h+='<div class="card"><h3>מה הבוט שולח</h3>'+
+    '<label class="row"><input type="checkbox" data-b="sendConfirm" '+(b.sendConfirm?'checked':'')+'> אישור ללקוח מיד אחרי ההזמנה (עם קישור ליומן)</label>'+
+    '<label class="row"><input type="checkbox" data-b="sendReminder" '+(b.sendReminder?'checked':'')+'> תזכורת ללקוח לפני התור</label>'+
+    '<label class="row"><input type="checkbox" data-b="notifyAdmin" '+(b.notifyAdmin?'checked':'')+'> הודעה ל'+esc(draft.biz.name)+' על כל תור חדש (למספר בלשונית כללי)</label>'+
+    '<div class="grid2" style="margin-top:10px"><div class="field"><label for="bRem">תזכורת כמה דקות לפני</label><input id="bRem" type="number" min="15" step="15" data-b="reminderMin" data-num="1" value="'+esc(b.reminderMin)+'"></div>'+
+    '<div class="field"><label for="bMax">מקסימום תורים קרובים למספר</label><input id="bMax" type="number" min="1" max="10" data-b="maxFuturePerPhone" data-num="1" value="'+esc(b.maxFuturePerPhone)+'"></div></div></div>';
+  var T=[["confirm","אישור תור ללקוח"],["reminder","תזכורת ללקוח"],["adminNew","הודעה לאריאל על תור חדש"],["otp","קוד אימות"],["cancel","ביטול תור (כשמוחקים תור ביומן)"],["autoReply","תשובה אוטומטית למי שכותב לבוט"]];
+  h+='<div class="card"><h3>נוסח ההודעות</h3><p class="who">אפשר להשתמש ב: {name} {date} {time} {service} {area} {biz} {cal} {site} {adminPhone} {code}</p>';
+  T.forEach(function(x){h+='<div class="field"><label for="bt_'+x[0]+'">'+x[1]+'</label><textarea id="bt_'+x[0]+'" data-b="'+x[0]+'" rows="4" style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;width:100%">'+esc(b[x[0]])+'</textarea></div>'});
+  h+='<p class="who">השינויים נשמרים עם ״שמור ופרסם שינויים״ למטה.</p></div>';
+  if(st&&st.log&&st.log.length){h+='<div class="card"><h3>יומן פעילות</h3>';st.log.slice(0,30).forEach(function(e){var d=new Date(e.t);h+='<div class="row"><span class="who" style="width:92px;flex:none;font-variant-numeric:tabular-nums">'+pad(d.getDate())+"."+pad(d.getMonth()+1)+" "+pad(d.getHours())+":"+pad(d.getMinutes())+'</span><span class="grow">'+esc(e.text)+'</span></div>'});h+='</div>'}
+  setTimeout(drawQr,0);
+  return h;
+}
+function usersHtml(){
+  var h='<div class="card"><h3>משתמשי ניהול</h3><p class="who">כל משתמש נכנס עם שם וסיסמה משלו. בכל מכשיר חדש צריך גם את מפתח GitHub פעם אחת.</p>';
+  Object.keys(keysMap).sort().forEach(function(u){
+    h+='<div class="row"><b class="grow" dir="ltr" style="text-align:start">'+esc(u)+(u===ghUser?' <span class="badge">אתה</span>':'')+'</b>'+
+      (u===ghUser?'<button class="btn" type="button" data-upw="1">שינוי סיסמה</button>':'<button class="btn danger" type="button" data-udel="'+esc(u)+'">'+(armed==="u:"+u?"בטוח?":"הסר")+'</button>')+'</div>';
+  });
+  h+='<div class="grid2" style="margin-top:10px"><div class="field"><label for="nuName">שם משתמש חדש</label><input id="nuName" dir="ltr" autocapitalize="off" spellcheck="false"></div>'+
+    '<div class="field"><label for="nuPass">סיסמה</label><input id="nuPass" type="password" autocomplete="new-password"></div></div>'+
+    '<button class="btn" type="button" id="nuAdd">הוסף משתמש</button>'+
+    '<div id="pwWrap" hidden style="margin-top:12px"><div class="field"><label for="myPass">הסיסמה החדשה שלך</label><input id="myPass" type="password" autocomplete="new-password"></div><button class="btn primary" type="button" id="myPassSave">שמור סיסמה</button></div>'+
+    '<div class="msg" id="uMsg"></div></div>';
+  return h;
 }
 var pasteVal="",histVal="",calMonth=null,openDay=null,cmeta={},cliQ="",cliOpen=null,editingNote=false;
 function pkey(v){return normPhone(v).replace(/^\+?972/,"0")}
@@ -1081,6 +1239,7 @@ function waCheck(){var el=$("gWa"),m=$("gWaMsg");if(!el)return;var ok=phoneOk(el
 $("tabBody").addEventListener("input",function(e){
   var t=e.target,d=t.dataset;
   if(t.id==="pasteBox"){pasteVal=t.value;return}
+  if(t.dataset.b){var bs=botSettings(),k=t.dataset.b;bs[k]=t.type==="checkbox"?t.checked:(t.dataset.num?(+t.value||0):t.value);markDirty();return}
   if(t.id==="cliSearch"){cliQ=t.value;var pos=t.selectionStart;renderTab();var n=$("cliSearch");if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}return}
   if(t.dataset.cnote!=null||t.dataset.cname!=null){editingNote=true;return}
   if(t.id==="histPhone"){histVal=t.value;renderHist();return}
@@ -1133,8 +1292,36 @@ $("tabBody").addEventListener("click",async function(e){
   else if(t.dataset.del){
     var id=t.dataset.del;
     if(armed!==id){armed=id;renderTab();return}
-    armed=null;try{await db.collection("data/users/"+uid).doc(id).delete();setStatus("✓ נמחק")}catch(_){setStatus("המחיקה נכשלה","dirty")}
+    armed=null;var old=store[id]?clone(store[id]):null;
+    try{await db.collection("data/users/"+uid).doc(id).delete();setStatus("✓ נמחק")
+      if(old&&old.kind==="appt"&&old.phone&&old.date>=ymd(new Date()))botAdmin("/admin/cancel",{phone:old.phone,name:old.name,date:old.date,time:old.time}).then(function(){setStatus("✓ נמחק, והלקוח קיבל הודעת ביטול")}).catch(function(){});
+    }catch(_){setStatus("המחיקה נכשלה","dirty")}
   }
+  else if(t.id==="nuAdd"){
+    var un=$("nuName").value.trim().toLowerCase(),up=$("nuPass").value,um=$("uMsg");
+    if(!/^[a-z0-9._-]{2,40}$/.test(un)){um.textContent="שם משתמש: אותיות באנגלית, ספרות, נקודה או מקף.";um.className="msg bad";return}
+    if(up.length<6){um.textContent="סיסמה של 6 תווים לפחות.";um.className="msg bad";return}
+    if(keysMap[un]){um.textContent="המשתמש כבר קיים.";um.className="msg bad";return}
+    t.disabled=true;var wrapped=await encryptBytes(up,dekRaw);
+    try{await mutate(function(){keysMap[un]=wrapped},"add user");um.textContent="✓ המשתמש "+un+" נוסף";um.className="msg ok";renderTab()}
+    catch(_){um.textContent="השמירה נכשלה. נסה שוב.";um.className="msg bad";t.disabled=false}
+  }
+  else if(t.dataset.udel){
+    var du=t.dataset.udel;if(armed!=="u:"+du){armed="u:"+du;renderTab();return}armed=null;
+    try{await mutate(function(){delete keysMap[du]},"remove user");renderTab()}catch(_){setStatus("ההסרה נכשלה","dirty")}
+  }
+  else if(t.dataset.upw){$("pwWrap").hidden=false;$("myPass").focus()}
+  else if(t.id==="myPassSave"){
+    var np=$("myPass").value,um2=$("uMsg");if(np.length<6){um2.textContent="סיסמה של 6 תווים לפחות.";um2.className="msg bad";return}
+    t.disabled=true;var w2=await encryptBytes(np,dekRaw);
+    try{await mutate(function(){keysMap[ghUser]=w2},"change password");ghPass=np;
+      try{localStorage.setItem(tokKey(ghUser),JSON.stringify(await encryptStr(np,ghToken)))}catch(_){}
+      um2.textContent="✓ הסיסמה שונתה";um2.className="msg ok";$("pwWrap").hidden=true}
+    catch(_){um2.textContent="השמירה נכשלה.";um2.className="msg bad"}
+    t.disabled=false;
+  }
+  else if(t.id==="waTest"){var wm=$("waMsg");t.disabled=true;try{await botAdmin("/admin/test",{});wm.textContent="✓ נשלחה הודעת בדיקה";wm.className="msg ok"}catch(e){wm.textContent="השליחה נכשלה. בדוק שהבוט מחובר.";wm.className="msg bad"}t.disabled=false}
+  else if(t.id==="waLogout"){if(armed!=="walogout"){armed="walogout";t.textContent="בטוח? לחץ שוב לניתוק";return}armed=null;try{await botAdmin("/admin/logout",{})}catch(_){}refreshBot()}
   else if(t.id==="vAdd"){
     var f=$("vFrom").value,to=$("vTo").value||f,vm=$("vMsg");
     if(!f){vm.textContent="צריך לבחור תאריך התחלה.";vm.className="msg bad";return}

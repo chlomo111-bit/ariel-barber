@@ -1,0 +1,14 @@
+{
+  "name": "ariel-barber-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WhatsApp bot for Ariel's booking site: verification code, booking, confirmation, 1h reminder",
+  "main": "bot.js",
+  "scripts": { "start": "node bot.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "baileys": "6.7.24",
+    "pino": "9.6.0",
+    "qrcode-terminal": "0.12.0"
+  }
+}
