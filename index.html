@@ -1093,6 +1093,7 @@ function waHtml(){
   else{
     var lab={open:"מחובר ✓",qr:"מחכה לסריקת QR",reconnecting:"מתחבר מחדש…",loggedout:"נותק, צריך לסרוק מחדש",starting:"מתחיל…"}[st.wa]||st.wa;
     h+='<p><span class="badge'+(st.wa==="open"?'':' block')+'" style="font-size:14px;padding:3px 12px">'+esc(lab)+'</span>'+(st.me?' <span class="who" dir="ltr">+'+esc(st.me)+'</span>':'')+'</p>';
+    if(st.pair)h+='<p class="who">בטלפון של מספר הבוט: וואטסאפ ← הגדרות ← מכשירים מקושרים ← קישור מכשיר ← ״קישור עם מספר טלפון״, והקלד:</p><div dir="ltr" style="font-size:34px;font-weight:900;letter-spacing:.15em;text-align:center;color:var(--gold-lt);background:var(--bg);border:1px solid var(--gold);border-radius:12px;padding:12px;font-variant-numeric:tabular-nums">'+esc(st.pair)+'</div>';
     if(st.qr)h+='<p class="who">בטלפון של מספר הבוט: וואטסאפ ← הגדרות ← מכשירים מקושרים ← קישור מכשיר, וסרוק:</p><div id="waQr" style="background:#fff;padding:12px;border-radius:12px;width:264px;margin:0 auto"></div>';
     h+='<div class="clia"><button class="btn" type="button" id="waTest">שלח הודעת בדיקה לאריאל</button>'+(st.wa==="open"?'<button class="btn danger" type="button" id="waLogout">נתק את המספר</button>':'')+'</div><div class="msg" id="waMsg"></div>';
   }

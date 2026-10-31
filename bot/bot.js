@@ -34,6 +34,7 @@ const GH_TOKEN = process.env.GH_TOKEN;
 const ADMIN_USER = String(process.env.ADMIN_USER || "").trim().toLowerCase();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const PORT = +(process.env.PORT || 8787);
+const BOT_PHONE = String(process.env.BOT_PHONE || "").replace(/\D/g, "").replace(/^0/, "972"); // number of the bot, for a pairing code instead of a QR
 const PUBLIC_URL = process.env.PUBLIC_URL || ""; // optional fixed address (named tunnel); empty = free quick tunnel
 if (!GH_TOKEN || !ADMIN_USER || !ADMIN_PASSWORD) { console.error("GH_TOKEN, ADMIN_USER ו-ADMIN_PASSWORD חובה בקובץ .env"); process.exit(1); }
 const AUTH_DIR = path.join(__dirname, "wa-session");
@@ -195,7 +196,7 @@ function slotFree(docs, day, time, dur) {
 }
 
 /* ---------- WhatsApp ---------- */
-let sock = null, waState = "starting", lastQr = null, me = null;
+let sock = null, waState = "starting", lastQr = null, me = null, pairCode = null, pairAsked = false;
 const repliedAt = new Map();
 async function startWA() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
@@ -203,14 +204,26 @@ async function startWA() {
   sock = makeWASocket({ auth: state, version, logger: pino({ level: "silent" }), browser: ["Ariel Booking Bot", "Chrome", "1.0"], markOnlineOnConnect: false });
   sock.ev.on("creds.update", saveCreds);
   sock.ev.on("connection.update", u => {
-    if (u.qr) { lastQr = u.qr; waState = "qr"; console.log("\nסרוק את הקוד עם הוואטסאפ של מספר הבוט (מכשירים מקושרים):"); qrTerm.generate(u.qr, { small: true }); }
-    if (u.connection === "open") { waState = "open"; lastQr = null; me = sock.user && sock.user.id ? sock.user.id.split(":")[0].split("@")[0] : null; log("wa", "מחובר לוואטסאפ" + (me ? " (" + me + ")" : "")); }
+    if (u.qr) {
+      lastQr = u.qr; waState = "qr";
+      if (BOT_PHONE && !pairAsked) {
+        pairAsked = true;
+        sock.requestPairingCode(BOT_PHONE).then(c => {
+          pairCode = String(c).replace(/(.{4})(.{4})/, "$1-$2");
+          console.log("\n======================================\n  קוד חיבור לוואטסאפ:  " + pairCode + "\n======================================");
+          console.log("בטלפון של מספר הבוט: וואטסאפ > הגדרות > מכשירים מקושרים > קישור מכשיר > קישור עם מספר טלפון במקום, והקלד את הקוד.");
+          log("wa", "קוד חיבור: " + pairCode);
+        }).catch(e => { log("error", "קוד חיבור נכשל: " + e.message + " (אפשר לסרוק QR)"); });
+      }
+      if (!BOT_PHONE) { console.log("\nסרוק את הקוד עם הוואטסאפ של מספר הבוט (מכשירים מקושרים):"); qrTerm.generate(u.qr, { small: true }); }
+    }
+    if (u.connection === "open") { waState = "open"; lastQr = null; pairCode = null; me = sock.user && sock.user.id ? sock.user.id.split(":")[0].split("@")[0] : null; log("wa", "מחובר לוואטסאפ" + (me ? " (" + me + ")" : "")); }
     if (u.connection === "close") {
       const code = u.lastDisconnect && u.lastDisconnect.error && u.lastDisconnect.error.output ? u.lastDisconnect.error.output.statusCode : 0;
       if (code === DisconnectReason.loggedOut) {
         waState = "loggedout"; log("wa", "הבוט נותק מהוואטסאפ. צריך לסרוק QR מחדש.");
-        fs.rmSync(AUTH_DIR, { recursive: true, force: true }); setTimeout(startWA, 2000);
-      } else { waState = "reconnecting"; setTimeout(startWA, 5000); }
+        fs.rmSync(AUTH_DIR, { recursive: true, force: true }); pairAsked = false; pairCode = null; setTimeout(startWA, 2000);
+      } else { waState = "reconnecting"; pairAsked = false; setTimeout(startWA, 5000); }
     }
   });
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
@@ -306,7 +319,7 @@ const server = http.createServer(async (req, res) => {
     /* ----- admin (key = sha256 of the admin password) ----- */
     if (p.startsWith("/admin/")) {
       if (req.headers["x-admin"] !== adminKey()) return send(res, 401, { error: "auth" });
-      if (p === "/admin/status") return send(res, 200, { wa: waState, qr: lastQr, me, url: tunnelUrl, log: LOG.slice(0, 60) });
+      if (p === "/admin/status") return send(res, 200, { wa: waState, qr: pairCode ? null : lastQr, pair: pairCode, me, url: tunnelUrl, log: LOG.slice(0, 60) });
       if (p === "/admin/test" && req.method === "POST") {
         const b = await body(req);
         try { await sendWA(b.phone || CFG.wa, "בדיקה ✅ הבוט של " + vars({}).biz + " עובד."); log("test", "הודעת בדיקה נשלחה"); return send(res, 200, { ok: true }); }
