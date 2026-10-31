@@ -936,7 +936,10 @@ $("loginForm").addEventListener("submit",async function(e){
   if(pass.length<6)return fail("סיסמה של 6 תווים לפחות.");
   btn.disabled=true;m.textContent="מתחבר…";m.className="msg";
   try{
-    if(st){try{ghToken=await decryptStr(pass,st)}catch(_){return fail("סיסמה שגויה.")}}
+    if(st){try{ghToken=await decryptStr(pass,st)}catch(_){
+      var own=null;try{own=localStorage.getItem(tokKey(user))}catch(_){}
+      if(!own){try{localStorage.removeItem(TOK_KEY)}catch(_){};$("tokWrap").hidden=false;$("pass2Wrap").hidden=false;$("lgReset").hidden=true;return fail("משתמש חדש במכשיר הזה: הדבק את מפתח GitHub והקלד את הסיסמה פעמיים.")}
+      return fail("סיסמה שגויה.")}}
     else{
       var tk=$("lgTok").value.trim();if(!tk)return fail("צריך להדביק מפתח GitHub.");
       if(pass!==$("lgPass2").value)return fail("שתי הסיסמאות לא זהות.");
