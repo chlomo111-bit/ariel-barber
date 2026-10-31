@@ -1,7 +1,7 @@
 #!/bin/bash
 # Installation + lancement du bot d'Ariel sur Mac. Usage : bash install-mac.sh
 set -e
-DIR="$HOME/Desktop/bot-ariel"
+DIR="${1:-$HOME/Desktop/bot-ariel}"
 echo "== Bot Ariel : installation dans $DIR =="
 if ! command -v node >/dev/null; then
   echo ""; echo "Node.js n'est pas installé."
