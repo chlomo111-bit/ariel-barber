@@ -15,7 +15,7 @@ const { spawn } = require("node:child_process");
 const { webcrypto: wc, createHash, randomInt } = require("node:crypto");
 const baileys = require("baileys");
 const makeWASocket = baileys.default;
-const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = baileys;
+const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = baileys;
 const pino = require("pino");
 const qrTerm = require("qrcode-terminal");
 
@@ -201,7 +201,7 @@ const repliedAt = new Map();
 async function startWA() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   let version; try { version = (await fetchLatestBaileysVersion()).version; } catch (_) {}
-  sock = makeWASocket({ auth: state, version, logger: pino({ level: "silent" }), browser: ["Ariel Booking Bot", "Chrome", "1.0"], markOnlineOnConnect: false });
+  sock = makeWASocket({ auth: state, version, logger: pino({ level: "silent" }), browser: Browsers.macOS("Chrome"), markOnlineOnConnect: false });
   sock.ev.on("creds.update", saveCreds);
   sock.ev.on("connection.update", u => {
     if (u.qr) {
@@ -223,7 +223,11 @@ async function startWA() {
       if (code === DisconnectReason.loggedOut) {
         waState = "loggedout"; log("wa", "הבוט נותק מהוואטסאפ. צריך לסרוק QR מחדש.");
         fs.rmSync(AUTH_DIR, { recursive: true, force: true }); pairAsked = false; pairCode = null; setTimeout(startWA, 2000);
-      } else { waState = "reconnecting"; pairAsked = false; setTimeout(startWA, 5000); }
+      } else {
+        waState = "reconnecting"; pairAsked = false;
+        if (sock && sock.authState && !sock.authState.creds.registered) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+        setTimeout(startWA, 3000);
+      }
     }
   });
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
