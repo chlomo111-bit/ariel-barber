@@ -481,7 +481,7 @@ body.adm .wa-fab{display:none}
 <script>
 (function(){
 "use strict";
-var DEFAULT_CFG={"biz":{"name":"אריאל","type":"ספר גברים","area":"חולון, ליד קניון חולון","audience":"גברים וילדים","tagline":"לא מחכים בתור"},"wa":"0587110702","daysAhead":14,"slot":30,"lead":60,"hours":[{"open":"10:30","close":"19:15","closed":false},{"open":"10:30","close":"19:15","closed":false},{"open":"10:30","close":"19:15","closed":false},{"open":"10:30","close":"19:15","closed":false},{"open":"10:30","close":"19:15","closed":false},{"open":"09:30","close":"14:00","closed":false},{"open":"10:00","close":"14:00","closed":true}],"vacations":[],"services":[{"id":"s1","name":"תספורת גבר","dur":30,"price":70},{"id":"s3","name":"תספורת ילד","dur":30,"price":70},{"id":"s2","name":"תספורת + סידור זקן","dur":30,"price":70},{"id":"s4","name":"סידור זקן","dur":30,"price":30}],"addons":[],"busy":[],"openMode":"biweekly","openAnchor":"2026-10-30","openTime":"08:00"};
+var DEFAULT_CFG={"biz":{"name":"אריאל","type":"ספר גברים","area":"דגניה 27, חולון","audience":"גברים וילדים","tagline":"לא מחכים בתור"},"wa":"0587110702","daysAhead":14,"slot":30,"lead":60,"hours":[{"open":"10:30","close":"19:15","closed":false},{"open":"10:30","close":"19:15","closed":false},{"open":"10:30","close":"19:15","closed":false},{"open":"10:30","close":"19:15","closed":false},{"open":"10:30","close":"19:15","closed":false},{"open":"09:30","close":"14:00","closed":false},{"open":"10:00","close":"14:00","closed":true}],"vacations":[],"services":[{"id":"s1","name":"תספורת גבר","dur":30,"price":70},{"id":"s3","name":"תספורת ילד","dur":30,"price":70},{"id":"s2","name":"תספורת + סידור זקן","dur":30,"price":70},{"id":"s4","name":"סידור זקן","dur":30,"price":30}],"addons":[],"busy":[],"openMode":"biweekly","openAnchor":"2026-10-30","openTime":"08:00"};
 var WD=["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
 var WDS=["יום א׳","יום ב׳","יום ג׳","יום ד׳","יום ה׳","יום ו׳","שבת"];
 var MO=["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
@@ -558,7 +558,7 @@ function renderBiz(){
   var b=cfg.biz,nm=b.name+" "+String(b.type||"").split(" ")[0];
   $("hName").textContent=nm;
   document.querySelectorAll(".bn").forEach(function(e){e.textContent=nm});
-  $("hArea").textContent=b.area;
+  $("hArea").innerHTML='<a href="https://waze.com/ul?q='+encodeURIComponent(b.area)+'&navigate=yes" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;text-decoration-color:var(--gold);text-underline-offset:4px">'+esc(b.area)+'</a>';
   $("hTag").textContent=b.tagline;$("hTag").hidden=!b.tagline;
   $("footBiz").textContent=b.name+" · "+b.type+" · "+String(b.area).split(",")[0];
   document.querySelectorAll(".bizname").forEach(function(e){e.textContent=b.name});
