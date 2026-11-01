@@ -808,7 +808,15 @@ function applyConfig(c){
   renderBiz();if(current==="sDay")renderDays();if(current==="sTime")renderSlots();if(current==="sSvc")renderSvcs();
 }
 renderBiz();
-fetch("config.json?v="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.json():null}).then(function(c){applyConfig(c);checkBot()}).catch(function(){});
+/* fresh settings straight from GitHub (the bot's address changes when it restarts); falls back to the published copy */
+function loadCfg(){
+  return fetch("https://api.github.com/repos/chlomo111-bit/ariel-barber/contents/config.json?ref=main&t="+Date.now(),{cache:"no-store",headers:{"Accept":"application/vnd.github.raw+json"}})
+    .then(function(r){if(!r.ok)throw 0;return r.json()})
+    .catch(function(){return fetch("config.json?v="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.json():null})});
+}
+loadCfg().then(function(c){applyConfig(c);checkBot()}).catch(function(){});
+/* re-check the bot when the customer reaches the details step, in case it restarted meanwhile */
+var _show=show;show=function(id,dir){_show(id,dir);if(id==="sDet"&&!otpSent)loadCfg().then(function(c){if(c&&c.botUrl){cfg.botUrl=c.botUrl}checkBot()}).catch(function(){})};
 
 /* =================== OWNER MODE =================== */
 var user=null,db=null,uid=null,appts=[],draft=null,dirty=false,curTab="cal",armed=null;
