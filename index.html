@@ -664,15 +664,25 @@ function renderMine(){
   var l=mineGet().sort(function(a,b){return (b.day+b.time)<(a.day+a.time)?-1:1}),now=ymd(new Date())+" "+fromMin(nowMin());
   if(!l.length){$("mineList").innerHTML='<p class="empty">עוד לא שלחת מכאן בקשה לתור.</p>';return}
   $("mineList").innerHTML=l.map(function(r){
-    var past=(r.day+" "+r.time)<now,key=r.day+"|"+r.time,can=!past&&!r.cancelled&&r.ok&&r.id&&r.ctok;
-    var st=r.cancelled?'<span style="color:var(--err)">בוטל</span>':past?'עבר':(r.ok?'נקבע ✓':'נשלח בוואטסאפ, מחכה לאישור של '+esc(cfg.biz.name));
-    return '<div class="svc" style="cursor:default;flex-wrap:wrap'+(past||r.cancelled?';opacity:.55':'')+'"><span><span class="nm">'+esc(dateLong(r.day))+' · '+esc(r.time)+'</span><span class="du">'+esc(r.svc)+'</span>'+
+    var past=(r.day+" "+r.time)<now,key=r.day+"|"+r.time;
+    /* the public agenda tells whether this slot is still booked */
+    var inAgenda=(cfg.busy||[]).some(function(x){return x.d===r.day&&x.s===r.time});
+    if(!past&&!r.cancelled&&cfgFresh&&!inAgenda&&(r.ok||Date.now()-(r.sent||0)>15*60e3))r.gone=true;
+    var off=r.cancelled||r.gone;
+    var can=!past&&!off&&r.ok&&r.id&&r.ctok;
+    var st=r.cancelled?'<span style="color:var(--err)">בוטל</span>':r.gone?'<span style="color:var(--err)">'+(r.ok?'בוטל':'לא נקבע')+'</span>':past?'עבר':(r.ok?'נקבע ✓':'נשלח בוואטסאפ, מחכה לאישור של '+esc(cfg.biz.name));
+    return '<div class="svc" style="cursor:default;flex-wrap:wrap'+(past||off?';opacity:.55':'')+'"><span><span class="nm">'+esc(dateLong(r.day))+' · '+esc(r.time)+'</span><span class="du">'+esc(r.svc)+'</span>'+
       '<span class="why" style="color:'+(past?'var(--muted)':'var(--gold-lt)')+'">'+st+'</span></span><span class="pr">'+esc(r.total)+' ₪</span>'+
-      (can?'<button type="button" class="ghost" data-mcancel="'+esc(key)+'" style="width:100%;min-height:44px;margin-top:6px;border-color:var(--err);color:var(--err)">'+(cancelArmed===key?'לחצו שוב לאישור הביטול':'ביטול התור')+'</button>':'')+'</div>';
+      (can?'<button type="button" class="ghost" data-mcancel="'+esc(key)+'" style="width:100%;min-height:44px;margin-top:6px;border-color:var(--err);color:var(--err)">'+(cancelArmed===key?'לחצו שוב לאישור הביטול':'ביטול התור')+'</button>':'')+
+      (past||off?'<button type="button" class="textlink" data-mremove="'+esc(key)+'" style="width:100%;font-size:14px;padding:6px">הסר מהרשימה</button>':'')+'</div>';
   }).join("")+'<p class="hint" style="text-align:center">הרשימה נשמרת רק בדפדפן הזה. אם תחליף טלפון או תמחק נתוני גלישה, היא תתאפס.</p>';
 }
-$("myLink").addEventListener("click",function(){renderMine();show("sMine",1);checkBot()});
+var cfgFresh=false;
+$("myLink").addEventListener("click",function(){cfgFresh=false;renderMine();show("sMine",1);
+  loadCfg().then(function(c){if(c&&Array.isArray(c.busy)){applyConfig(c);cfgFresh=true;renderMine()}checkBot()}).catch(function(){})});
 $("mineList").addEventListener("click",function(e){
+  var rm=e.target.closest("[data-mremove]");
+  if(rm){var k=rm.dataset.mremove;mineSet(mineGet().filter(function(x){return x.day+"|"+x.time!==k}));renderMine();return}
   var b=e.target.closest("[data-mcancel]");if(!b)return;var key=b.dataset.mcancel;
   if(cancelArmed!==key){cancelArmed=key;renderMine();return}
   cancelArmed=null;var l=mineGet(),r=l.filter(function(x){return x.day+"|"+x.time===key})[0];if(!r)return;
