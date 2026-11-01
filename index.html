@@ -1232,6 +1232,7 @@ function cliHtml(){
         '<button class="btn" type="button" data-newfor="'+c.phone+'">קבע תור</button>'+
         '<button class="btn" type="button" data-vip="'+c.phone+'">'+(c.vip?'הסר לקוח קבוע':'סמן כלקוח קבוע')+'</button></div>'+
         '<div class="field"><label for="cliName">שם</label><input id="cliName" data-cname="'+c.phone+'" value="'+esc(c.name)+'"></div>'+
+        '<div class="field"><label for="cliPhone">טלפון</label><input id="cliPhone" type="tel" dir="ltr" data-cname="'+c.phone+'" value="'+esc(c.phone)+'"></div>'+
         '<div class="field"><label for="cliNote">הערות פרטיות (למשל: דירוג 1 בצדדים)</label><textarea id="cliNote" data-cnote="'+c.phone+'" rows="2" style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;width:100%">'+esc(c.note)+'</textarea></div>'+
         '<button class="btn" type="button" data-csave="'+c.phone+'">שמור פרטי לקוח</button><div class="msg" id="cliMsg"></div>'+
         '<h3 style="margin-top:14px">היסטוריה ('+hist.length+')</h3>';
@@ -1334,7 +1335,22 @@ $("tabBody").addEventListener("click",async function(e){
     var ph=t.dataset.vip||t.dataset.csave,cur=cmeta[ph]||{},rec={kind:"client",phone:ph,name:cur.name||"",note:cur.note||"",vip:!!cur.vip};
     if(t.dataset.vip)rec.vip=!rec.vip;
     if(t.dataset.csave){var ne=$("cliName"),no=$("cliNote");if(ne)rec.name=ne.value.trim();if(no)rec.note=no.value.trim()}
-    editingNote=false;t.disabled=true;
+    editingNote=false;
+    var np=t.dataset.csave&&$("cliPhone")?pkey($("cliPhone").value):ph;
+    if(np!==ph){
+      var mm3=$("cliMsg");
+      if(!phoneOk(np)){mm3.textContent="מספר נייד לא תקין (05X-XXXXXXX)";mm3.className="msg bad";return}
+      t.disabled=true;rec.phone=np;
+      try{
+        await mutate(function(st){
+          Object.keys(st).forEach(function(k){var a=st[k];if(a&&a.kind==="appt"&&a.phone&&pkey(a.phone)===ph)a.phone=np});
+          var oldMeta=st["c"+ph];delete st["c"+ph];
+          var into=st["c"+np]||{};st["c"+np]=Object.assign({},oldMeta||{},into,rec);
+        },"change client phone");
+        cliOpen=np;renderTab();var mm4=$("cliMsg");if(mm4){mm4.textContent="✓ המספר עודכן בכל התורים של הלקוח";mm4.className="msg ok"}
+      }catch(_){mm3.textContent="השמירה נכשלה, נסה שוב";mm3.className="msg bad";t.disabled=false}
+      return}
+    t.disabled=true;
     try{await db.collection("data/users/"+uid).doc("c"+ph).set(rec);var mm=$("cliMsg");if(mm){mm.textContent="✓ נשמר";mm.className="msg ok"}}
     catch(_){var mm2=$("cliMsg");if(mm2){mm2.textContent="השמירה נכשלה, נסה שוב";mm2.className="msg bad"}}
     t.disabled=false;return}
