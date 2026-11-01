@@ -316,6 +316,7 @@ const server = http.createServer(async (req, res) => {
       if (result !== "ok") return send(res, 409, { error: result });
       OTP.delete(phone);
       log("booking", name + " · " + phone + " · " + b.day + " " + b.time + " · " + svc.name);
+      setTimeout(() => gcalTick(true), 1500);
       if (st.sendConfirm) sendWA(phone, fill(st.confirm, vars(rec))).catch(e => log("error", "אישור ללקוח נכשל: " + e.message));
       if (st.notifyAdmin) for (const ph of adminPhones()) sendWA(ph, fill(st.adminNew, vars(rec))).catch(e => log("error", "הודעה למנהל " + ph + " נכשלה: " + e.message));
       return send(res, 200, { ok: true });
@@ -324,7 +325,7 @@ const server = http.createServer(async (req, res) => {
     /* ----- admin (key = sha256 of the admin password) ----- */
     if (p.startsWith("/admin/")) {
       if (req.headers["x-admin"] !== adminKey()) return send(res, 401, { error: "auth" });
-      if (p === "/admin/status") return send(res, 200, { wa: waState, qr: pairCode ? null : lastQr, pair: pairCode, me, url: tunnelUrl, log: LOG.slice(0, 60) });
+      if (p === "/admin/status") return send(res, 200, { wa: waState, qr: pairCode ? null : lastQr, pair: pairCode, me, gcal: gcalState, url: tunnelUrl, log: LOG.slice(0, 60) });
       if (p === "/admin/test" && req.method === "POST") {
         const b = await body(req);
         try { CFG = await readConfig(); const list = b.phone ? [b.phone] : adminPhones(); for (const ph of list) await sendWA(ph, "בדיקה ✅ הבוט של " + vars({}).biz + " עובד."); log("test", "הודעת בדיקה נשלחה ל-" + list.join(", ")); return send(res, 200, { ok: true, sent: list }); }
@@ -369,6 +370,32 @@ async function reminderTick() {
   finally { reminderBusy = false; }
 }
 
+/* ---------- Google Calendar sync (Apps Script web app; url+secret stored encrypted in data.enc.json, doc kind "gcal") ---------- */
+let gcalState = "off", gcalHash = "", gcalAt = 0, gcalBusy = false;
+async function gcalTick(force) {
+  if (gcalBusy) return; gcalBusy = true;
+  try {
+    const docs = await readStore();
+    const g = Object.values(docs).find(d => d && d.kind === "gcal" && d.url);
+    if (!g) { gcalState = "off"; return; }
+    const today = ymd(new Date()), biz = (CFG.biz && CFG.biz.name) || "אריאל";
+    const items = Object.entries(docs).filter(([, a]) => a.kind === "appt" && a.date && a.time && a.date >= today).map(([id, a]) => {
+      const st = parseYmd(a.date); st.setMinutes(toMin(a.time)); const en = new Date(st.getTime() + (+a.dur || 30) * 60e3);
+      return { id, title: "✂️ " + (a.name || "לקוח") + (a.note ? " · " + a.note : ""), start: st.toISOString(), end: en.toISOString(),
+        desc: [a.phone ? "טלפון: " + pLocal(a.phone) : "", a.price ? "מחיר: " + a.price + " ₪" : "", a.source === "web" ? "נקבע באתר" : "נוסף בניהול"].filter(Boolean).join("\n"),
+        loc: (CFG.biz && CFG.biz.area) || "" };
+    }).sort((x, y) => x.id < y.id ? -1 : 1);
+    const hash = JSON.stringify(items);
+    if (!force && hash === gcalHash && Date.now() - gcalAt < 6 * 3600e3) return;
+    const r = await fetch(g.url, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ secret: g.secret, items }), redirect: "follow" });
+    const j = await r.json().catch(() => ({}));
+    if (!j.ok) { gcalState = "error"; log("error", "סנכרון יומן Google נכשל" + (j.error ? ": " + j.error : "")); return; }
+    if (gcalState !== "ok" || j.made || j.removed) log("gcal", "יומן Google מסונכרן" + (j.made ? " · נוספו " + j.made : "") + (j.removed ? " · הוסרו " + j.removed : ""));
+    gcalState = "ok"; gcalHash = hash; gcalAt = Date.now();
+  } catch (e) { gcalState = "error"; log("error", "סנכרון יומן Google: " + e.message); }
+  finally { gcalBusy = false; }
+}
+
 /* ---------- public address: free cloudflared tunnel, written into config.json ---------- */
 let tunnelUrl = PUBLIC_URL || null;
 async function publishUrl(u) {
@@ -398,5 +425,6 @@ function startTunnel() {
   if (PUBLIC_URL) publishUrl(PUBLIC_URL).catch(e => log("error", e.message)); else startTunnel();
   startWA();
   setInterval(reminderTick, 60e3);
+  setInterval(() => gcalTick(false), 60e3); setTimeout(() => gcalTick(true), 8000);
   setInterval(() => { for (const [k, v] of OTP) if (v.exp < Date.now()) OTP.delete(k); }, 10 * 60e3);
 })();

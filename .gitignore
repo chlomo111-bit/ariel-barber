@@ -2,3 +2,4 @@ bot/.env
 bot/wa-session/
 bot/node_modules/
 .DS_Store
+google/
