@@ -657,17 +657,34 @@ function buildMessage(){
 /* ---- "my appointments": kept only in this customer's browser ---- */
 var MINE_KEY="arielMine";
 function mineGet(){try{var v=JSON.parse(localStorage.getItem(MINE_KEY)||"[]");return Array.isArray(v)?v:[]}catch(_){return []}}
+var lastBook=null,cancelArmed=null;
+function mineSet(l){try{localStorage.setItem(MINE_KEY,JSON.stringify(l.slice(-30)))}catch(_){}}
 function mineAdd(r){try{var l=mineGet().filter(function(x){return !(x.day===r.day&&x.time===r.time)});l.push(r);localStorage.setItem(MINE_KEY,JSON.stringify(l.slice(-30)))}catch(_){}}
 function renderMine(){
   var l=mineGet().sort(function(a,b){return (b.day+b.time)<(a.day+a.time)?-1:1}),now=ymd(new Date())+" "+fromMin(nowMin());
   if(!l.length){$("mineList").innerHTML='<p class="empty">עוד לא שלחת מכאן בקשה לתור.</p>';return}
   $("mineList").innerHTML=l.map(function(r){
-    var past=(r.day+" "+r.time)<now;
-    return '<div class="svc" style="cursor:default'+(past?';opacity:.55':'')+'"><span><span class="nm">'+esc(dateLong(r.day))+' · '+esc(r.time)+'</span><span class="du">'+esc(r.svc)+'</span>'+
-      '<span class="why" style="color:'+(past?'var(--muted)':'var(--gold-lt)')+'">'+(past?'עבר':(r.ok?'נקבע ✓':'נשלח בוואטסאפ, מחכה לאישור של '+esc(cfg.biz.name)))+'</span></span><span class="pr">'+esc(r.total)+' ₪</span></div>';
+    var past=(r.day+" "+r.time)<now,key=r.day+"|"+r.time,can=!past&&!r.cancelled&&r.ok&&r.id&&r.ctok;
+    var st=r.cancelled?'<span style="color:var(--err)">בוטל</span>':past?'עבר':(r.ok?'נקבע ✓':'נשלח בוואטסאפ, מחכה לאישור של '+esc(cfg.biz.name));
+    return '<div class="svc" style="cursor:default;flex-wrap:wrap'+(past||r.cancelled?';opacity:.55':'')+'"><span><span class="nm">'+esc(dateLong(r.day))+' · '+esc(r.time)+'</span><span class="du">'+esc(r.svc)+'</span>'+
+      '<span class="why" style="color:'+(past?'var(--muted)':'var(--gold-lt)')+'">'+st+'</span></span><span class="pr">'+esc(r.total)+' ₪</span>'+
+      (can?'<button type="button" class="ghost" data-mcancel="'+esc(key)+'" style="width:100%;min-height:44px;margin-top:6px;border-color:var(--err);color:var(--err)">'+(cancelArmed===key?'לחצו שוב לאישור הביטול':'ביטול התור')+'</button>':'')+'</div>';
   }).join("")+'<p class="hint" style="text-align:center">הרשימה נשמרת רק בדפדפן הזה. אם תחליף טלפון או תמחק נתוני גלישה, היא תתאפס.</p>';
 }
-$("myLink").addEventListener("click",function(){renderMine();show("sMine",1)});
+$("myLink").addEventListener("click",function(){renderMine();show("sMine",1);checkBot()});
+$("mineList").addEventListener("click",function(e){
+  var b=e.target.closest("[data-mcancel]");if(!b)return;var key=b.dataset.mcancel;
+  if(cancelArmed!==key){cancelArmed=key;renderMine();return}
+  cancelArmed=null;var l=mineGet(),r=l.filter(function(x){return x.day+"|"+x.time===key})[0];if(!r)return;
+  b.disabled=true;b.textContent="מבטל…";
+  if(!cfg.botUrl){b.textContent="הביטול לא זמין כרגע. כתבו ל"+cfg.biz.name+" בוואטסאפ";return}
+  botCall("/cancel",{id:r.id,ctok:r.ctok}).then(function(j){
+    if(j.ok||j.error==="already"){r.cancelled=true;mineSet(l);cfg.busy=cfg.busy.filter(function(x){return !(x.d===r.day&&x.s===r.time)});renderMine();return}
+    if(j.error==="late"){b.textContent="אפשר לבטל עד "+(j.minutes||60)+" דקות לפני. כתבו ל"+cfg.biz.name;return}
+    if(j.error==="notfound"){b.textContent="התור לא נמצא, אולי כבר בוטל. כתבו ל"+cfg.biz.name;return}
+    b.disabled=false;b.textContent="הביטול נכשל, נסו שוב";
+  }).catch(function(){b.disabled=false;b.textContent="אין חיבור לשירות כרגע. נסו שוב או כתבו ל"+cfg.biz.name});
+});
 
 /* ---- add to the customer's calendar ---- */
 function calStamp(day,min){return day.replace(/-/g,"")+"T"+fromMin(min).replace(":","")+"00"}
@@ -750,7 +767,7 @@ function bookNow(){
   botBusy=true;formChanged();bookMsg("קובע את התור…",true);
   botCall("/book",{phone:sel.phone,code:$("fcode").value.trim(),name:sel.name.trim(),day:sel.day,time:sel.time,svc:sel.svc}).then(function(j){
     botBusy=false;
-    if(j.ok){bookMsg("");cfg.busy.push({d:sel.day,s:sel.time,m:(svcById(sel.svc)||{}).dur||30});showDone(true);return}
+    if(j.ok){bookMsg("");lastBook={id:j.id,ctok:j.ctok};cfg.busy.push({d:sel.day,s:sel.time,m:(svcById(sel.svc)||{}).dur||30});showDone(true);return}
     var e=j.error;
     if(e==="code")bookMsg("הקוד לא נכון. בדקו ונסו שוב.");
     else if(e==="expired"){otpSent=false;setBookUi();bookMsg("הקוד פג תוקף. שלחו קוד חדש.")}
@@ -768,10 +785,10 @@ $("form").addEventListener("submit",function(e){e.preventDefault();formChanged()
 });
 function inboxBook(){
   botBusy=true;formChanged();bookMsg("קובע את התור…",true);
-  fetch(cfg.inboxUrl,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"book",phone:sel.phone,name:sel.name.trim(),day:sel.day,time:sel.time,svc:sel.svc})})
+  fetch(cfg.inboxUrl,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"book",phone:sel.phone,name:sel.name.trim(),day:sel.day,time:sel.time,svc:sel.svc,ctok:(lastBook={ctok:Array.from(crypto.getRandomValues(new Uint8Array(12))).map(function(b){return b.toString(16).padStart(2,"0")}).join("")}).ctok})})
     .then(function(r){return r.json()}).then(function(j){
       botBusy=false;
-      if(j.ok){bookMsg("");cfg.busy.push({d:sel.day,s:sel.time,m:(svcById(sel.svc)||{}).dur||30});showDone("saved");return}
+      if(j.ok){bookMsg("");lastBook.id=j.id;cfg.busy.push({d:sel.day,s:sel.time,m:(svcById(sel.svc)||{}).dur||30});showDone("saved");return}
       var e=j.error;
       if(e==="taken"){bookMsg("השעה הזו נתפסה הרגע. בחרו שעה אחרת.");cfg.busy.push({d:sel.day,s:sel.time,m:30});sel.time=null;setTimeout(function(){renderSlots();show("sTime",-1)},1500)}
       else if(e==="limit")bookMsg("כבר יש למספר הזה תורים שמחכים. לשינוי כתבו ל"+cfg.biz.name+".");
@@ -786,7 +803,7 @@ function showDone(auto){
   $("waBtn").href="https://wa.me/"+waIntl(cfg.wa)+"?text="+encodeURIComponent(text);
   $("waPlain").textContent=cfg.wa;$("copyText").value=text;$("copyFallback").hidden=true;$("copyBtn").textContent="העתק הודעה";
   $("gcalBtn").href=calLink();$("icsBtn").hidden=false;
-  var sv=svcById(sel.svc);mineAdd({day:sel.day,time:sel.time,svc:sv.name,total:total(),sent:Date.now(),ok:!!auto});
+  var sv=svcById(sel.svc);mineAdd({day:sel.day,time:sel.time,svc:sv.name,total:total(),sent:Date.now(),ok:!!auto,id:auto&&lastBook?lastBook.id:null,ctok:auto&&lastBook?lastBook.ctok:null});lastBook=null;
   $("doneTitle").textContent=auto?"התור נקבע ✓":"הבקשה מוכנה";
   $("doneNote").textContent=auto==="saved"?"התור נשמר ביומן ✓ תקבל אישור בוואטסאפ בדקות הקרובות, ותזכורת לפני התור.":auto?"שלחנו לך אישור בוואטסאפ, ותקבל תזכורת לפני התור. נתראה!":"התור עוד לא נקבע. שלחו את הבקשה מהוואטסאפ של המספר שהזנתם. "+cfg.biz.name+" יבדוק ויאשר לכם בחזרה בוואטסאפ, ורק אז התור סגור.";
   $("waBtn").hidden=auto;$("copyBtn").hidden=auto;$("waPlainRow").hidden=auto;$("editBtn").hidden=auto;if(auto)$("copyFallback").hidden=true;

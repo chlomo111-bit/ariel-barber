@@ -334,15 +334,17 @@ const server = http.createServer(async (req, res) => {
       const svc = (CFG.services || []).find(s => s.id === b.svc);
       if (!svc) return send(res, 400, { error: "service" });
       const dur = +svc.dur || 30, st = botSet();
-      let result = "ok", rec = null;
+      let result = "ok", rec = null, newId = null;
+      const ctok = createHash("sha256").update(String(Math.random()) + Date.now() + phone).digest("hex").slice(0, 24);
       await changeStore(docs => {
         const today = ymd(new Date());
         const mine = Object.values(docs).filter(a => live(a) && a.kind === "appt" && a.date >= today && pLocal(a.phone) === phone).length;
         if (mine >= (+st.maxFuturePerPhone || 2)) { result = "limit"; return null; }
         const f = slotFree(docs, b.day, b.time, dur);
         if (f !== "ok") { result = f; return null; }
-        rec = { kind: "appt", date: b.day, time: b.time, dur, name, phone, note: svc.name, price: +svc.price || 0, source: "web", confirmSent: true, created: Date.now(), reminded: false };
-        docs["w" + Date.now().toString(36) + randomInt(100, 999)] = rec;
+        rec = { kind: "appt", date: b.day, time: b.time, dur, name, phone, note: svc.name, price: +svc.price || 0, source: "web", confirmSent: true, created: Date.now(), reminded: false, ctok };
+        newId = "w" + Date.now().toString(36) + randomInt(100, 999);
+        docs[newId] = rec;
         return docs;
       }, "booking " + b.day + " " + b.time);
       if (result !== "ok") return send(res, 409, { error: result });
@@ -351,6 +353,32 @@ const server = http.createServer(async (req, res) => {
       setTimeout(() => gcalTick(true), 1500);
       if (st.sendConfirm) sendWA(phone, fill(st.confirm, vars(rec))).catch(e => log("error", "אישור ללקוח נכשל: " + e.message));
       if (st.notifyAdmin) for (const ph of adminPhones()) sendWA(ph, fill(st.adminNew, vars(rec))).catch(e => log("error", "הודעה למנהל " + ph + " נכשלה: " + e.message));
+      return send(res, 200, { ok: true, id: newId, ctok });
+    }
+
+    /* customer cancels from "התורים שלי" with the private token he got when booking */
+    if (p === "/cancel" && req.method === "POST") {
+      const b = await body(req);
+      if (tooMany("cancel-ip:" + ipOf(req), 10, 3600e3)) return send(res, 429, { error: "rate" });
+      if (!b.id || !b.ctok) return send(res, 400, { error: "bad" });
+      CFG = await readConfig();
+      const st = botSet(), now = Date.now();
+      let found = null, result = "ok";
+      await changeStore(d => {
+        const a = d[b.id];
+        if (!a || a.ctok !== String(b.ctok)) { result = "notfound"; return null; }
+        if (!live(a)) { result = "already"; return null; }
+        const t = parseYmd(a.date).getTime() + toMin(a.time) * 60e3;
+        if (t <= now) { result = "past"; return null; }
+        if (t - now < (+st.cancelMinBefore || 60) * 60e3) { result = "late"; return null; }
+        found = a;
+        d[b.id] = Object.assign({}, a, { status: "cancelled", cancelledAt: now, cancelledBy: "client" });
+        return d;
+      }, "client cancelled (site)");
+      if (result !== "ok") return send(res, result === "notfound" ? 404 : 409, { error: result, minutes: +st.cancelMinBefore || 60 });
+      log("cancel", "הלקוח " + (found.name || found.phone) + " ביטל באתר את התור " + found.date + " " + found.time);
+      sendWA(found.phone, fill(st.cancelOk, vars(found))).catch(() => {});
+      for (const ph of adminPhones()) sendWA(ph, fill(st.adminCancel, vars(found, { by: " על ידי הלקוח" }))).catch(() => {});
       return send(res, 200, { ok: true });
     }
 
@@ -420,7 +448,7 @@ async function inboxTick() {
           for (const x of j.items) {
             if (d[x.id]) continue;
             const clash = Object.values(d).some(a => live(a) && a.date === x.day && a.time && toMin(x.time) < toMin(a.time) + (+a.dur || 0) && toMin(x.time) + x.dur > toMin(a.time));
-            d[x.id] = { kind: "appt", date: x.day, time: x.time, dur: x.dur, name: x.name, phone: x.phone, note: x.svcName + (clash ? " ⚠️ חפיפה עם תור אחר" : ""), price: x.price, source: "web", confirmSent: false, created: x.created, reminded: false };
+            d[x.id] = { kind: "appt", date: x.day, time: x.time, dur: x.dur, name: x.name, phone: x.phone, note: x.svcName + (clash ? " ⚠️ חפיפה עם תור אחר" : ""), price: x.price, source: "web", confirmSent: false, created: x.created, reminded: false, ctok: x.ctok || "" };
           }
           return d;
         }, "bookings from inbox");
