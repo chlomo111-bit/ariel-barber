@@ -907,7 +907,7 @@ async function dataFileText(){
   return JSON.stringify({v:2,keys:keysMap,iv:b64e(iv),ct:b64e(ct)});
 }
 async function loadPubCfg(){var t=await ghGet("config.json");pubCfg=t?JSON.parse(t):clone(cfg);applyConfig(clone(pubCfg))}
-function busyFromStore(){var today=ymd(new Date());return Object.keys(store).map(function(k){return store[k]}).filter(function(a){return a.date&&a.time&&a.date>=today}).map(function(a){return {d:a.date,s:a.time,m:+a.dur||0}})}
+function busyFromStore(){var today=ymd(new Date());return Object.keys(store).map(function(k){return store[k]}).filter(function(a){return a.date&&a.time&&a.date>=today&&a.status!=="cancelled"}).map(function(a){return {d:a.date,s:a.time,m:+a.dur||0}})}
 /* read the latest config, change only our part, write; the bot writes botUrl/botAt itself */
 async function saveConfig(patch,msg){
   for(var i=0;i<3;i++){
@@ -945,7 +945,7 @@ async function importInbox(){
     var j=await r.json();if(!j.ok||!j.items||!j.items.length)return;
     var ids=j.items.map(function(x){return x.id});
     await mutate(function(st){j.items.forEach(function(x){if(st[x.id])return;
-      var clash=Object.keys(st).some(function(k){var a=st[k];return a.date===x.day&&a.time&&toMin(x.time)<toMin(a.time)+(+a.dur||0)&&toMin(x.time)+x.dur>toMin(a.time)});
+      var clash=Object.keys(st).some(function(k){var a=st[k];return a.status!=="cancelled"&&a.date===x.day&&a.time&&toMin(x.time)<toMin(a.time)+(+a.dur||0)&&toMin(x.time)+x.dur>toMin(a.time)});
       st[x.id]={kind:"appt",date:x.day,time:x.time,dur:x.dur,name:x.name,phone:x.phone,note:x.svcName+(clash?" ⚠️ חפיפה עם תור אחר":""),price:x.price,source:"web",confirmSent:false,created:x.created,reminded:false}})},"bookings from inbox");
     await fetch(ib.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"ack",secret:ib.secret,ids:ids})});
     setStatus("✓ "+ids.length+" תורים חדשים נכנסו ליומן");
@@ -1000,7 +1000,8 @@ async function connectDb(){
   if(listeners.length)return;
   db.collection("data").onSnapshot(function(snap){
     var all=snap.docs.map(function(d){var x=d.data()||{};x._id=d.id;return x});
-    appts=all.filter(function(x){return x.date&&x.time});
+    allAppts=all.filter(function(x){return x.date&&x.time});
+    appts=allAppts.filter(function(x){return x.status!=="cancelled"});
     cmeta={};all.forEach(function(x){if(x.kind==="client"&&x.phone)cmeta[x.phone]=x});
     if((curTab==="cal"||curTab==="cli")&&!$("admin").hidden&&!editingNote)renderTab();
   },function(){});
@@ -1046,7 +1047,7 @@ function renderTab(){
     up.forEach(function(a){
       h+='<div class="row"><div class="grow"><div class="when">'+esc(dateShort(a.date))+' · '+esc(a.time)+'–'+fromMin(toMin(a.time)+(+a.dur||0))+' <span class="badge'+(a.kind==="block"?" block":"")+'">'+(a.kind==="block"?"חסימה":"תור")+'</span></div>'+
         '<div class="who">'+esc(a.name||"")+(a.phone?' · <span dir="ltr">'+esc(a.phone)+'</span>':'')+(a.note?' · '+esc(a.note):'')+'</div></div>'+
-        '<button class="btn danger" type="button" data-del="'+esc(a._id)+'">'+(armed===a._id?"בטוח? מחק":"מחיקה")+'</button></div>';
+        '<button class="btn danger" type="button" data-del="'+esc(a._id)+'">'+(armed===a._id?"בטוח?":(a.kind==="block"?"מחיקה":"ביטול"))+'</button></div>';
     });
     h+='<p class="who">שמות וטלפונים נשמרים רק בשטח הפרטי שלך. ללקוחות מתפרסמות רק השעות התפוסות.</p></div>';
   }
@@ -1170,13 +1171,14 @@ function usersHtml(){
     '<div class="msg" id="uMsg"></div></div>';
   return h;
 }
-var pasteVal="",histVal="",calMonth=null,openDay=null,cmeta={},cliQ="",cliOpen=null,editingNote=false;
+var allAppts=[],pasteVal="",histVal="",calMonth=null,openDay=null,cmeta={},cliQ="",cliOpen=null,editingNote=false;
 function pkey(v){return normPhone(v).replace(/^\+?972/,"0")}
 function clientsList(){
   var m={},today=ymd(new Date());
-  appts.forEach(function(a){if(a.kind==="block"||!a.phone)return;var k=pkey(a.phone);if(k.length<9)return;
-    var c=m[k]||(m[k]={phone:k,name:"",visits:0,upcoming:0,last:"",next:"",list:[]});
+  allAppts.forEach(function(a){if(a.kind==="block"||!a.phone)return;var k=pkey(a.phone);if(k.length<9)return;
+    var c=m[k]||(m[k]={phone:k,name:"",visits:0,upcoming:0,last:"",next:"",list:[],cancelled:0});
     c.list.push(a);if(a.name)c.name=a.name;
+    if(a.status==="cancelled"){c.cancelled++;return}
     if(a.date<today){c.visits++;if(a.date>c.last)c.last=a.date}else{c.upcoming++;if(!c.next||a.date<c.next)c.next=a.date}});
   Object.keys(cmeta).forEach(function(k){if(!m[k])m[k]={phone:k,name:cmeta[k].name||"",visits:0,upcoming:0,last:"",next:"",list:[]}});
   return Object.keys(m).map(function(k){var c=m[k],x=cmeta[k]||{};c.note=x.note||"";c.vip=!!x.vip;if(x.name)c.name=x.name;return c});
@@ -1205,7 +1207,7 @@ function cliHtml(){
         '<div class="field"><label for="cliNote">הערות פרטיות (למשל: דירוג 1 בצדדים)</label><textarea id="cliNote" data-cnote="'+c.phone+'" rows="2" style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;width:100%">'+esc(c.note)+'</textarea></div>'+
         '<button class="btn" type="button" data-csave="'+c.phone+'">שמור פרטי לקוח</button><div class="msg" id="cliMsg"></div>'+
         '<h3 style="margin-top:14px">היסטוריה ('+hist.length+')</h3>';
-      hist.forEach(function(a){h+='<div class="row"><div class="grow"><div class="when">'+esc(dateShort(a.date))+' · '+esc(a.time)+(a.date<today?' <span class="badge block">עבר</span>':' <span class="badge">קרוב</span>')+'</div>'+(a.note?'<div class="who">'+esc(a.note)+'</div>':'')+'</div></div>'});
+      hist.forEach(function(a){h+='<div class="row"><div class="grow"><div class="when">'+esc(dateShort(a.date))+' · '+esc(a.time)+(a.status==="cancelled"?' <span class="badge block" style="border-color:var(--err);color:var(--err)">בוטל</span>':a.date<today?' <span class="badge block">עבר</span>':' <span class="badge">קרוב</span>')+'</div>'+(a.note?'<div class="who">'+esc(a.note)+'</div>':'')+'</div></div>'});
       if(!hist.length)h+='<p class="who">אין תורים ביומן.</p>';
       h+='</div>';
     }
@@ -1259,7 +1261,7 @@ function hourRow(t,items,s,cont){
     h+='<div class="ab'+(a.kind==="block"?' blk':'')+'"><div><b>'+esc(a.time)+'–'+fromMin(toMin(a.time)+(+a.dur||0))+'</b> '+(a.kind==="block"?'חסום':esc(a.name||'לקוח'))+
       '<div class="who">'+(a.note?esc(a.note):'')+(a.phone?' · <span dir="ltr">'+esc(a.phone)+'</span>':'')+'</div></div>'+
       (a.phone&&a.kind!=="block"?'<a class="btn" target="_blank" rel="noopener" href="https://wa.me/'+waIntl(a.phone)+'" aria-label="וואטסאפ ללקוח">וואטסאפ</a>':'')+
-      '<button class="btn danger" type="button" data-del="'+esc(a._id)+'">'+(armed===a._id?"בטוח?":"מחק")+'</button></div>';
+      '<button class="btn danger" type="button" data-del="'+esc(a._id)+'">'+(armed===a._id?"בטוח?":(a.kind==="block"?"מחק":"ביטול"))+'</button></div>';
   });
   else if(cont)h+='<span class="cont">ממשיך…</span>';
   else h+='<button class="free" type="button" data-slot="'+s+'|'+esc(t)+'">פנוי · הוסף תור</button>';
@@ -1268,7 +1270,7 @@ function hourRow(t,items,s,cont){
 function renderHist(){
   var out=$("histOut");if(!out)return;var q=normPhone(histVal).replace(/^\+?972/,"0");
   if(q.length<9){out.innerHTML='<p class="who">הקלד מספר כדי לראות את כל התורים של הלקוח.</p>';return}
-  var l=appts.filter(function(a){return normPhone(a.phone).replace(/^\+?972/,"0")===q}).sort(function(a,c){return (c.date+c.time)<(a.date+a.time)?-1:1});
+  var l=allAppts.filter(function(a){return normPhone(a.phone).replace(/^\+?972/,"0")===q}).sort(function(a,c){return (c.date+c.time)<(a.date+a.time)?-1:1});
   var today=ymd(new Date());
   out.innerHTML=l.length?'<p class="who">'+l.length+' תורים ביומן</p>'+l.map(function(a){return '<div class="row"><div class="grow"><div class="when">'+esc(dateShort(a.date))+' · '+esc(a.time)+(a.date<today?' <span class="badge block">עבר</span>':' <span class="badge">קרוב</span>')+'</div><div class="who">'+esc(a.name||"")+(a.note?' · '+esc(a.note):'')+'</div></div></div>'}).join(""):'<p class="who">אין תורים ביומן למספר הזה.</p>';
 }
@@ -1340,7 +1342,9 @@ $("tabBody").addEventListener("click",async function(e){
     var id=t.dataset.del;
     if(armed!==id){armed=id;renderTab();return}
     armed=null;var old=store[id]?clone(store[id]):null;
-    try{await db.collection("data/users/"+uid).doc(id).delete();setStatus("✓ נמחק")
+    try{
+      if(old&&old.kind==="appt"&&old.phone){var cx=clone(old);cx.status="cancelled";cx.cancelledAt=Date.now();await db.collection("data/users/"+uid).doc(id).set(cx);setStatus("✓ התור בוטל (נשאר בכרטיס הלקוח)")}
+      else{await db.collection("data/users/"+uid).doc(id).delete();setStatus("✓ נמחק")}
       if(old&&old.kind==="appt"&&old.phone&&old.date>=ymd(new Date()))botAdmin("/admin/cancel",{phone:old.phone,name:old.name,date:old.date,time:old.time}).then(function(){setStatus("✓ נמחק, והלקוח קיבל הודעת ביטול")}).catch(function(){});
     }catch(_){setStatus("המחיקה נכשלה","dirty")}
   }

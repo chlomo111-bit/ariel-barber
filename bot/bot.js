@@ -133,7 +133,8 @@ async function writeStore(docs, msg) {
 }
 /* admin pages prove they hold the data key */
 const adminKey = () => createHash("sha256").update("ariel-bot:" + (dataKeyRaw ? b64e(dataKeyRaw) : ADMIN_PASSWORD)).digest("hex");
-const busyFrom = docs => { const today = ymd(new Date()); return Object.values(docs).filter(a => a.date && a.time && a.date >= today).map(a => ({ d: a.date, s: a.time, m: +a.dur || 0 })); };
+const live = a => a && a.status !== "cancelled";
+const busyFrom = docs => { const today = ymd(new Date()); return Object.values(docs).filter(a => live(a) && a.date && a.time && a.date >= today).map(a => ({ d: a.date, s: a.time, m: +a.dur || 0 })); };
 async function changeStore(apply, msg) {
   let changed = false;
   const docs = await updateFile("data.enc.json", readStore, writeStore, d => { const r = apply(d); if (r !== null) changed = true; return r; }, msg);
@@ -192,7 +193,7 @@ function slotFree(docs, day, time, dur) {
   const t = toMin(time), end = t + dur;
   if (t < toMin(h.open) || end > toMin(h.close)) return "closed";
   if (day === today && t < nowMin() + (+CFG.lead || 0)) return "closed";
-  const clash = Object.values(docs).some(a => a.date === day && a.time && t < toMin(a.time) + (+a.dur || 0) && end > toMin(a.time));
+  const clash = Object.values(docs).some(a => live(a) && a.date === day && a.time && t < toMin(a.time) + (+a.dur || 0) && end > toMin(a.time));
   return clash ? "taken" : "ok";
 }
 
@@ -305,7 +306,7 @@ const server = http.createServer(async (req, res) => {
       let result = "ok", rec = null;
       await changeStore(docs => {
         const today = ymd(new Date());
-        const mine = Object.values(docs).filter(a => a.kind === "appt" && a.date >= today && pLocal(a.phone) === phone).length;
+        const mine = Object.values(docs).filter(a => live(a) && a.kind === "appt" && a.date >= today && pLocal(a.phone) === phone).length;
         if (mine >= (+st.maxFuturePerPhone || 2)) { result = "limit"; return null; }
         const f = slotFree(docs, b.day, b.time, dur);
         if (f !== "ok") { result = f; return null; }
@@ -355,7 +356,7 @@ async function reminderTick() {
     const st = botSet(); if (!st.sendReminder) return;
     const lead = (+st.reminderMin || 60) * 60e3, now = Date.now();
     const docs = await readStore();
-    const due = Object.entries(docs).filter(([, a]) => a.kind === "appt" && a.phone && !a.reminded && a.date && a.time).filter(([, a]) => {
+    const due = Object.entries(docs).filter(([, a]) => live(a) && a.kind === "appt" && a.phone && !a.reminded && a.date && a.time).filter(([, a]) => {
       const t = parseYmd(a.date).getTime() + toMin(a.time) * 60e3;
       return t - now <= lead && t > now; // inside the reminder window, still in the future
     });
@@ -385,7 +386,7 @@ async function inboxTick() {
         docs = await changeStore(d => {
           for (const x of j.items) {
             if (d[x.id]) continue;
-            const clash = Object.values(d).some(a => a.date === x.day && a.time && toMin(x.time) < toMin(a.time) + (+a.dur || 0) && toMin(x.time) + x.dur > toMin(a.time));
+            const clash = Object.values(d).some(a => live(a) && a.date === x.day && a.time && toMin(x.time) < toMin(a.time) + (+a.dur || 0) && toMin(x.time) + x.dur > toMin(a.time));
             d[x.id] = { kind: "appt", date: x.day, time: x.time, dur: x.dur, name: x.name, phone: x.phone, note: x.svcName + (clash ? " ⚠️ חפיפה עם תור אחר" : ""), price: x.price, source: "web", confirmSent: false, created: x.created, reminded: false };
           }
           return d;
@@ -395,7 +396,7 @@ async function inboxTick() {
       }
     }
     if (waState !== "open") return;
-    const todo = Object.entries(docs).filter(([, a]) => a.kind === "appt" && a.confirmSent === false && a.date >= ymd(new Date()));
+    const todo = Object.entries(docs).filter(([, a]) => live(a) && a.kind === "appt" && a.confirmSent === false && a.date >= ymd(new Date()));
     if (!todo.length) return;
     CFG = await readConfig();
     const st = botSet(), done = [];
@@ -420,7 +421,7 @@ async function gcalTick(force) {
     const g = Object.values(docs).find(d => d && d.kind === "gcal" && d.url);
     if (!g) { gcalState = "off"; return; }
     const today = ymd(new Date()), biz = (CFG.biz && CFG.biz.name) || "אריאל";
-    const items = Object.entries(docs).filter(([, a]) => a.kind === "appt" && a.date && a.time && a.date >= today).map(([id, a]) => {
+    const items = Object.entries(docs).filter(([, a]) => live(a) && a.kind === "appt" && a.date && a.time && a.date >= today).map(([id, a]) => {
       const st = parseYmd(a.date); st.setMinutes(toMin(a.time)); const en = new Date(st.getTime() + (+a.dur || 30) * 60e3);
       return { id, title: "✂️ " + (a.name || "לקוח") + (a.note ? " · " + a.note : ""), start: st.toISOString(), end: en.toISOString(),
         desc: [a.phone ? "טלפון: " + pLocal(a.phone) : "", a.price ? "מחיר: " + a.price + " ₪" : "", a.source === "web" ? "נקבע באתר" : "נוסף בניהול"].filter(Boolean).join("\n"),
