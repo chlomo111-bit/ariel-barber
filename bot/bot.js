@@ -156,6 +156,7 @@ const DEFAULT_BOT = {
   sendReminder: true,
   maxFuturePerPhone: 2
 };
+const adminPhones = () => { const l = (Array.isArray(CFG.adminPhones) && CFG.adminPhones.length ? CFG.adminPhones : [CFG.wa]).map(pLocal).filter(phoneOk); return [...new Set(l)]; };
 const SITE_URL = "https://" + GH.owner + ".github.io/" + GH.repo + "/";
 let CFG = {};
 const botSet = () => Object.assign({}, DEFAULT_BOT, CFG.bot || {});
@@ -316,7 +317,7 @@ const server = http.createServer(async (req, res) => {
       OTP.delete(phone);
       log("booking", name + " · " + phone + " · " + b.day + " " + b.time + " · " + svc.name);
       if (st.sendConfirm) sendWA(phone, fill(st.confirm, vars(rec))).catch(e => log("error", "אישור ללקוח נכשל: " + e.message));
-      if (st.notifyAdmin && CFG.wa) sendWA(CFG.wa, fill(st.adminNew, vars(rec))).catch(e => log("error", "הודעה לאריאל נכשלה: " + e.message));
+      if (st.notifyAdmin) for (const ph of adminPhones()) sendWA(ph, fill(st.adminNew, vars(rec))).catch(e => log("error", "הודעה למנהל " + ph + " נכשלה: " + e.message));
       return send(res, 200, { ok: true });
     }
 
@@ -326,7 +327,7 @@ const server = http.createServer(async (req, res) => {
       if (p === "/admin/status") return send(res, 200, { wa: waState, qr: pairCode ? null : lastQr, pair: pairCode, me, url: tunnelUrl, log: LOG.slice(0, 60) });
       if (p === "/admin/test" && req.method === "POST") {
         const b = await body(req);
-        try { await sendWA(b.phone || CFG.wa, "בדיקה ✅ הבוט של " + vars({}).biz + " עובד."); log("test", "הודעת בדיקה נשלחה"); return send(res, 200, { ok: true }); }
+        try { CFG = await readConfig(); const list = b.phone ? [b.phone] : adminPhones(); for (const ph of list) await sendWA(ph, "בדיקה ✅ הבוט של " + vars({}).biz + " עובד."); log("test", "הודעת בדיקה נשלחה ל-" + list.join(", ")); return send(res, 200, { ok: true, sent: list }); }
         catch (e) { return send(res, 503, { error: e.code || e.message }); }
       }
       if (p === "/admin/cancel" && req.method === "POST") {

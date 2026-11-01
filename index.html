@@ -1098,13 +1098,14 @@ function waHtml(){
     h+='<p><span class="badge'+(st.wa==="open"?'':' block')+'" style="font-size:14px;padding:3px 12px">'+esc(lab)+'</span>'+(st.me?' <span class="who" dir="ltr">+'+esc(st.me)+'</span>':'')+'</p>';
     if(st.pair)h+='<p class="who">בטלפון של מספר הבוט: וואטסאפ ← הגדרות ← מכשירים מקושרים ← קישור מכשיר ← ״קישור עם מספר טלפון״, והקלד:</p><div dir="ltr" style="font-size:34px;font-weight:900;letter-spacing:.15em;text-align:center;color:var(--gold-lt);background:var(--bg);border:1px solid var(--gold);border-radius:12px;padding:12px;font-variant-numeric:tabular-nums">'+esc(st.pair)+'</div>';
     if(st.qr)h+='<p class="who">בטלפון של מספר הבוט: וואטסאפ ← הגדרות ← מכשירים מקושרים ← קישור מכשיר, וסרוק:</p><div id="waQr" style="background:#fff;padding:12px;border-radius:12px;width:264px;margin:0 auto"></div>';
-    h+='<div class="clia"><button class="btn" type="button" id="waTest">שלח הודעת בדיקה לאריאל</button>'+(st.wa==="open"?'<button class="btn danger" type="button" id="waLogout">נתק את המספר</button>':'')+'</div><div class="msg" id="waMsg"></div>';
+    h+='<div class="clia"><button class="btn" type="button" id="waTest">שלח הודעת בדיקה למנהלים</button>'+(st.wa==="open"?'<button class="btn danger" type="button" id="waLogout">נתק את המספר</button>':'')+'</div><div class="msg" id="waMsg"></div>';
   }
   h+='</div>';
   h+='<div class="card"><h3>מה הבוט שולח</h3>'+
     '<label class="row"><input type="checkbox" data-b="sendConfirm" '+(b.sendConfirm?'checked':'')+'> אישור ללקוח מיד אחרי ההזמנה (עם קישור ליומן)</label>'+
     '<label class="row"><input type="checkbox" data-b="sendReminder" '+(b.sendReminder?'checked':'')+'> תזכורת ללקוח לפני התור</label>'+
-    '<label class="row"><input type="checkbox" data-b="notifyAdmin" '+(b.notifyAdmin?'checked':'')+'> הודעה ל'+esc(draft.biz.name)+' על כל תור חדש (למספר בלשונית כללי)</label>'+
+    '<label class="row"><input type="checkbox" data-b="notifyAdmin" '+(b.notifyAdmin?'checked':'')+'> הודעה למנהלים על כל תור חדש</label>'+
+    '<div class="field" style="margin-top:10px"><label for="admPh">מספרי המנהלים שמקבלים הודעות (מופרדים בפסיק)</label><input id="admPh" dir="ltr" data-ap="1" value="'+esc((draft.adminPhones&&draft.adminPhones.length?draft.adminPhones:[draft.wa]).join(", "))+'"></div>'+
     '<div class="grid2" style="margin-top:10px"><div class="field"><label for="bRem">תזכורת כמה דקות לפני</label><input id="bRem" type="number" min="15" step="15" data-b="reminderMin" data-num="1" value="'+esc(b.reminderMin)+'"></div>'+
     '<div class="field"><label for="bMax">מקסימום תורים קרובים למספר</label><input id="bMax" type="number" min="1" max="10" data-b="maxFuturePerPhone" data-num="1" value="'+esc(b.maxFuturePerPhone)+'"></div></div></div>';
   var T=[["confirm","אישור תור ללקוח"],["reminder","תזכורת ללקוח"],["adminNew","הודעה לאריאל על תור חדש"],["otp","קוד אימות"],["cancel","ביטול תור (כשמוחקים תור ביומן)"],["autoReply","תשובה אוטומטית למי שכותב לבוט"]];
@@ -1243,6 +1244,7 @@ function waCheck(){var el=$("gWa"),m=$("gWaMsg");if(!el)return;var ok=phoneOk(el
 $("tabBody").addEventListener("input",function(e){
   var t=e.target,d=t.dataset;
   if(t.id==="pasteBox"){pasteVal=t.value;return}
+  if(t.dataset.ap){draft.adminPhones=t.value.split(/[,;\s]+/).map(function(x){return x.trim()}).filter(function(x){return x});markDirty();return}
   if(t.dataset.b){var bs=botSettings(),k=t.dataset.b;bs[k]=t.type==="checkbox"?t.checked:(t.dataset.num?(+t.value||0):t.value);markDirty();return}
   if(t.id==="cliSearch"){cliQ=t.value;var pos=t.selectionStart;renderTab();var n=$("cliSearch");if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}return}
   if(t.dataset.cnote!=null||t.dataset.cname!=null){editingNote=true;return}
