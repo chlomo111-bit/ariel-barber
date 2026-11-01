@@ -1387,9 +1387,9 @@ $("tabBody").addEventListener("click",async function(e){
     if(armed!==id){armed=id;renderTab();return}
     armed=null;var old=store[id]?clone(store[id]):null;
     try{
-      if(old&&old.kind==="appt"&&old.phone){var cx=clone(old);cx.status="cancelled";cx.cancelledAt=Date.now();await db.collection("data/users/"+uid).doc(id).set(cx);setStatus("✓ התור בוטל (נשאר בכרטיס הלקוח)")}
+      if(old&&old.kind==="appt"&&old.phone){var cx=clone(old);cx.status="cancelled";cx.cancelledAt=Date.now();cx.cancelledBy="admin";cx.cancelNotified=false;await db.collection("data/users/"+uid).doc(id).set(cx);setStatus("✓ התור בוטל (נשאר בכרטיס הלקוח)")}
       else{await db.collection("data/users/"+uid).doc(id).delete();setStatus("✓ נמחק")}
-      if(old&&old.kind==="appt"&&old.phone&&old.date>=ymd(new Date()))botAdmin("/admin/cancel",{phone:old.phone,name:old.name,date:old.date,time:old.time,note:old.note}).then(function(){setStatus("✓ נמחק, והלקוח קיבל הודעת ביטול")}).catch(function(){});
+      if(old&&old.kind==="appt"&&old.phone&&old.date>=ymd(new Date()))botAdmin("/admin/cancel",{}).then(function(){setStatus("✓ התור בוטל. הלקוח והמנהלים יקבלו הודעה בוואטסאפ")}).catch(function(){setStatus("✓ התור בוטל. ההודעות יישלחו כשהבוט מחובר")});
     }catch(_){setStatus("המחיקה נכשלה","dirty")}
   }
   else if(t.id==="nuAdd"){

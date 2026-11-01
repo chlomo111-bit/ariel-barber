@@ -268,7 +268,7 @@ async function clientCancel(jid, pnJid) {
       if (!next) return null;
       found = next[1];
       if (next[2] - now < (+st.cancelMinBefore || 60) * 60e3) { late = true; return null; }
-      d[next[0]] = Object.assign({}, next[1], { status: "cancelled", cancelledAt: now, cancelledBy: "client" });
+      d[next[0]] = Object.assign({}, next[1], { status: "cancelled", cancelledAt: now, cancelledBy: "client", cancelNotified: true });
       return d;
     }, "client cancelled");
     if (!found) { await reply("לא מצאתי תור קרוב על המספר הזה. לקביעת תור: " + SITE_URL); return; }
@@ -372,7 +372,7 @@ const server = http.createServer(async (req, res) => {
         if (t <= now) { result = "past"; return null; }
         if (t - now < (+st.cancelMinBefore || 60) * 60e3) { result = "late"; return null; }
         found = a;
-        d[b.id] = Object.assign({}, a, { status: "cancelled", cancelledAt: now, cancelledBy: "client" });
+        d[b.id] = Object.assign({}, a, { status: "cancelled", cancelledAt: now, cancelledBy: "client", cancelNotified: true });
         return d;
       }, "client cancelled (site)");
       if (result !== "ok") return send(res, result === "notfound" ? 404 : 409, { error: result, minutes: +st.cancelMinBefore || 60 });
@@ -393,9 +393,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (p === "/admin/cancel" && req.method === "POST") {
         const b = await body(req);
-        CFG = await readConfig();
-        for (const ph of adminPhones()) sendWA(ph, fill(botSet().adminCancel, vars(b, { by: " מהניהול" }))).catch(() => {});
-        try { await sendWA(b.phone, fill(botSet().cancel, vars(b))); log("cancel", "הודעת ביטול נשלחה ל-" + pLocal(b.phone)); return send(res, 200, { ok: true }); }
+        try { setTimeout(inboxTick, 500); return send(res, 200, { ok: true }); }
         catch (e) { return send(res, 503, { error: e.code || e.message }); }
       }
       if (p === "/admin/logout" && req.method === "POST") {
@@ -432,6 +430,22 @@ async function reminderTick() {
   finally { reminderBusy = false; }
 }
 
+/* appointments cancelled in the admin panel: tell the client and all admins (once) */
+async function cancelNotices(docs) {
+  const today = ymd(new Date()), recent = Date.now() - 24 * 3600e3;
+  const todo = Object.entries(docs).filter(([, a]) => a && a.kind === "appt" && a.status === "cancelled" && !a.cancelNotified && (a.cancelledAt || 0) > recent && a.date >= today);
+  if (!todo.length) return;
+  CFG = await readConfig();
+  const st = botSet(), done = [];
+  for (const [id, a] of todo) {
+    const byClient = a.cancelledBy === "client";
+    if (!byClient && a.phone) await sendWA(a.phone, fill(st.cancel, vars(a))).catch(e => log("error", "הודעת ביטול ללקוח נכשלה: " + e.message));
+    for (const ph of adminPhones()) await sendWA(ph, fill(st.adminCancel, vars(a, { by: byClient ? " על ידי הלקוח" : " על ידי " + ((CFG.biz && CFG.biz.name) || "אריאל") }))).catch(() => {});
+    done.push(id); log("cancel", "ביטול נשלח: " + (a.name || a.phone) + " " + a.date + " " + a.time);
+  }
+  await changeStore(d => { done.forEach(id => { if (d[id]) d[id].cancelNotified = true; }); return d; }, "cancellation notices sent");
+}
+
 /* ---------- inbox (Apps Script): bookings made while the bot was off; then confirmations ---------- */
 let inboxBusy = false;
 async function inboxTick() {
@@ -457,6 +471,7 @@ async function inboxTick() {
       }
     }
     if (waState !== "open") return;
+    await cancelNotices(docs);
     const todo = Object.entries(docs).filter(([, a]) => live(a) && a.kind === "appt" && a.confirmSent === false && a.date >= ymd(new Date()));
     if (!todo.length) return;
     CFG = await readConfig();
