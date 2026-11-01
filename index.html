@@ -1211,6 +1211,17 @@ function clientsList(){
   Object.keys(cmeta).forEach(function(k){if(!m[k])m[k]={phone:k,name:cmeta[k].name||"",visits:0,upcoming:0,last:"",next:"",list:[]}});
   return Object.keys(m).map(function(k){var c=m[k],x=cmeta[k]||{};c.note=x.note||"";c.vip=!!x.vip;if(x.name)c.name=x.name;return c});
 }
+function infoText(){
+  var c=pubCfg||cfg,ic={"תספורת גבר":"✂️","תספורת ילד":"👦","תספורת + סידור זקן":"🧔","סידור זקן":"🪒"},WDL=["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
+  var lines=["היי! כאן "+c.biz.name+" "+(String(c.biz.type||"").split(" ")[0])+" 💈",""];
+  if(c.biz.tagline)lines.push(c.biz.tagline+"!","");
+  (c.services||[]).forEach(function(sv){lines.push((ic[sv.name]||"•")+" "+sv.name+" – "+sv.price+" ₪")});
+  lines.push("");
+  var groups=[];(c.hours||[]).forEach(function(h,i){var k=h.closed?"סגור":h.open+"–"+h.close,g=groups[groups.length-1];if(g&&g.k===k)g.to=i;else groups.push({k:k,from:i,to:i})});
+  groups.forEach(function(g){if(g.k==="סגור")return;lines.push("🕐 "+WDL[g.from]+(g.to>g.from?"–"+WDL[g.to]:"")+" "+g.k)});
+  lines.push("📍 "+c.biz.area,"","לקביעת תור:","https://chlomo111-bit.github.io/ariel-barber/");
+  return lines.join("\n");
+}
 function cliHtml(){
   if(!db)return '<div class="card"><p class="who">רשימת הלקוחות נטענת… אם היא לא מופיעה, היומן הפרטי לא זמין בתצוגה הזו.</p></div>';
   var all=clientsList(),q=cliQ.trim().toLowerCase(),qd=q.replace(/\D/g,"");
@@ -1235,6 +1246,8 @@ function cliHtml(){
         '<div class="field"><label for="cliPhone">טלפון</label><input id="cliPhone" type="tel" dir="ltr" data-cname="'+c.phone+'" value="'+esc(c.phone)+'"></div>'+
         '<div class="field"><label for="cliNote">הערות פרטיות (למשל: דירוג 1 בצדדים)</label><textarea id="cliNote" data-cnote="'+c.phone+'" rows="2" style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;width:100%">'+esc(c.note)+'</textarea></div>'+
         '<button class="btn" type="button" data-csave="'+c.phone+'">שמור פרטי לקוח</button><div class="msg" id="cliMsg"></div>'+
+        '<h3 style="margin-top:14px">הודעה מהבוט</h3><div class="field"><label for="cliSend">טקסט ההודעה</label><textarea id="cliSend" data-cname="'+c.phone+'" rows="6" style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;width:100%"></textarea></div>'+
+        '<div class="clia"><button class="btn" type="button" id="cliInfo">מלא מידע על המספרה</button><button class="btn primary" type="button" data-csend="'+c.phone+'">שלח בוואטסאפ</button></div><div class="msg" id="cliSendMsg"></div>'+
         '<h3 style="margin-top:14px">היסטוריה ('+hist.length+')</h3>';
       hist.forEach(function(a){h+='<div class="row"><div class="grow"><div class="when">'+esc(dateShort(a.date))+' · '+esc(a.time)+(a.status==="cancelled"?' <span class="badge block" style="border-color:var(--err);color:var(--err)">בוטל</span>':a.date<today?' <span class="badge block">עבר</span>':' <span class="badge">קרוב</span>')+'</div>'+(a.note?'<div class="who">'+esc(a.note)+'</div>':'')+'</div></div>'});
       if(!hist.length)h+='<p class="who">אין תורים ביומן.</p>';
@@ -1328,6 +1341,14 @@ $("tabBody").addEventListener("input",function(e){
 });
 $("tabBody").addEventListener("click",async function(e){
   var t=e.target.closest("button");if(!t)return;
+  if(t.id==="cliInfo"){$("cliSend").value=infoText();editingNote=true;return}
+  if(t.dataset.csend){
+    var tx=$("cliSend").value.trim(),sm=$("cliSendMsg");if(!tx){sm.textContent="כתוב הודעה קודם.";sm.className="msg bad";return}
+    if(armed!=="send:"+t.dataset.csend){armed="send:"+t.dataset.csend;t.textContent="בטוח? לחץ שוב לשליחה";return}
+    armed=null;t.disabled=true;t.textContent="שולח…";
+    try{await botAdmin("/admin/send",{phone:t.dataset.csend,text:tx});sm.textContent="✓ ההודעה נשלחה";sm.className="msg ok";$("cliSend").value="";editingNote=false}
+    catch(e){sm.textContent="השליחה נכשלה. בדוק שהבוט מחובר (לשונית וואטסאפ).";sm.className="msg bad"}
+    t.disabled=false;t.textContent="שלח בוואטסאפ";return}
   if(t.dataset.cli){cliOpen=cliOpen===t.dataset.cli?null:t.dataset.cli;editingNote=false;renderTab();return}
   if(t.dataset.newfor){var c=clientsList().filter(function(x){return x.phone===t.dataset.newfor})[0];curTab="cal";ssSet(curTab);renderTabs();renderTab();
     $("aKind").value="appt";$("aName").value=c?c.name:"";$("aPhone").value=t.dataset.newfor;$("aDate").focus();$("aAdd").scrollIntoView({behavior:reduce?"auto":"smooth",block:"center"});return}

@@ -396,6 +396,12 @@ const server = http.createServer(async (req, res) => {
         try { setTimeout(inboxTick, 500); return send(res, 200, { ok: true }); }
         catch (e) { return send(res, 503, { error: e.code || e.message }); }
       }
+      if (p === "/admin/send" && req.method === "POST") {
+        const b = await body(req), text = String(b.text || "").trim().slice(0, 3000);
+        if (!phoneOk(b.phone) || !text) return send(res, 400, { error: "bad" });
+        try { await sendWA(b.phone, text); log("send", "הודעה נשלחה ל-" + pLocal(b.phone)); return send(res, 200, { ok: true }); }
+        catch (e) { return send(res, 503, { error: e.code || e.message }); }
+      }
       if (p === "/admin/logout" && req.method === "POST") {
         try { await sock.logout(); } catch (_) {}
         return send(res, 200, { ok: true });
