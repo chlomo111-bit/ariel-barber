@@ -309,7 +309,7 @@ const server = http.createServer(async (req, res) => {
         if (mine >= (+st.maxFuturePerPhone || 2)) { result = "limit"; return null; }
         const f = slotFree(docs, b.day, b.time, dur);
         if (f !== "ok") { result = f; return null; }
-        rec = { kind: "appt", date: b.day, time: b.time, dur, name, phone, note: svc.name, price: +svc.price || 0, source: "web", created: Date.now(), reminded: false };
+        rec = { kind: "appt", date: b.day, time: b.time, dur, name, phone, note: svc.name, price: +svc.price || 0, source: "web", confirmSent: true, created: Date.now(), reminded: false };
         docs["w" + Date.now().toString(36) + randomInt(100, 999)] = rec;
         return docs;
       }, "booking " + b.day + " " + b.time);
@@ -370,6 +370,47 @@ async function reminderTick() {
   finally { reminderBusy = false; }
 }
 
+/* ---------- inbox (Apps Script): bookings made while the bot was off; then confirmations ---------- */
+let inboxBusy = false;
+async function inboxTick() {
+  if (inboxBusy) return; inboxBusy = true;
+  try {
+    let docs = await readStore();
+    const ib = Object.values(docs).find(d => d && d.kind === "inbox" && d.url);
+    if (ib) {
+      const r = await fetch(ib.url, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ action: "list", secret: ib.secret }), redirect: "follow" });
+      const j = await r.json().catch(() => ({}));
+      if (j.ok && j.items && j.items.length) {
+        CFG = await readConfig();
+        docs = await changeStore(d => {
+          for (const x of j.items) {
+            if (d[x.id]) continue;
+            const clash = Object.values(d).some(a => a.date === x.day && a.time && toMin(x.time) < toMin(a.time) + (+a.dur || 0) && toMin(x.time) + x.dur > toMin(a.time));
+            d[x.id] = { kind: "appt", date: x.day, time: x.time, dur: x.dur, name: x.name, phone: x.phone, note: x.svcName + (clash ? " ⚠️ חפיפה עם תור אחר" : ""), price: x.price, source: "web", confirmSent: false, created: x.created, reminded: false };
+          }
+          return d;
+        }, "bookings from inbox");
+        await fetch(ib.url, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ action: "ack", secret: ib.secret, ids: j.items.map(x => x.id) }), redirect: "follow" });
+        log("booking", j.items.length + " תורים נכנסו מתיבת ההזמנות");
+      }
+    }
+    if (waState !== "open") return;
+    const todo = Object.entries(docs).filter(([, a]) => a.kind === "appt" && a.confirmSent === false && a.date >= ymd(new Date()));
+    if (!todo.length) return;
+    CFG = await readConfig();
+    const st = botSet(), done = [];
+    for (const [id, a] of todo) {
+      try {
+        if (st.sendConfirm) await sendWA(a.phone, fill(st.confirm, vars(a)));
+        if (st.notifyAdmin) for (const ph of adminPhones()) await sendWA(ph, fill(st.adminNew, vars(a))).catch(() => {});
+        done.push(id); log("booking", "אישור נשלח ל-" + (a.name || a.phone) + " (" + a.date + " " + a.time + ")");
+      } catch (e) { if (e.code === "nowa") done.push(id); log("error", "אישור נכשל ל-" + pLocal(a.phone) + ": " + e.message); }
+    }
+    if (done.length) await changeStore(d => { done.forEach(id => { if (d[id]) d[id].confirmSent = true; }); return d; }, "confirmations sent");
+  } catch (e) { log("error", "תיבת ההזמנות: " + e.message); }
+  finally { inboxBusy = false; }
+}
+
 /* ---------- Google Calendar sync (Apps Script web app; url+secret stored encrypted in data.enc.json, doc kind "gcal") ---------- */
 let gcalState = "off", gcalHash = "", gcalAt = 0, gcalBusy = false;
 async function gcalTick(force) {
@@ -425,6 +466,7 @@ function startTunnel() {
   if (PUBLIC_URL) publishUrl(PUBLIC_URL).catch(e => log("error", e.message)); else startTunnel();
   startWA();
   setInterval(reminderTick, 60e3);
-  setInterval(() => gcalTick(false), 60e3); setTimeout(() => gcalTick(true), 8000);
+  setInterval(() => gcalTick(false), 60e3);
+  setInterval(inboxTick, 45e3); setTimeout(inboxTick, 5000); setTimeout(() => gcalTick(true), 8000);
   setInterval(() => { for (const [k, v] of OTP) if (v.exp < Date.now()) OTP.delete(k); }, 10 * 60e3);
 })();

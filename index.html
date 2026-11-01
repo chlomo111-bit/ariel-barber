@@ -720,6 +720,8 @@ function checkBot(){
 }
 function setBookUi(){
   $("otpWrap").hidden=!(botOn&&otpSent);
+  var inbox=!botOn&&!!cfg.inboxUrl;
+  if(inbox){$("fineTxt").textContent="התור נשמר מיד ביומן של "+cfg.biz.name+", ותקבל אישור בוואטסאפ.";$("toConfirm").textContent="קביעת התור";formChanged();return}
   $("fineTxt").innerHTML=botOn?"נשלח אליך קוד בוואטסאפ כדי לוודא שהמספר שלך. אחרי האישור התור נקבע מיד, ותקבל אישור ותזכורת.":"הבקשה נשלחת מהוואטסאפ שלך, כך <span class=\"bizname\">"+esc(cfg.biz.name)+"</span> רואה שהמספר אמיתי. התור נסגר רק אחרי שהוא מאשר לך בחזרה.";
   $("toConfirm").textContent=botOn?(otpSent?"אישור וקביעת התור":"שלחו לי קוד בוואטסאפ"):"שליחת בקשה לתור";
   formChanged();
@@ -761,8 +763,23 @@ function bookNow(){
 }
 $("form").addEventListener("submit",function(e){e.preventDefault();formChanged();if($("toConfirm").disabled)return;
   if(botOn){if(!otpSent)sendOtp();else bookNow();return}
+  if(cfg.inboxUrl){inboxBook();return}
   showDone(false);
 });
+function inboxBook(){
+  botBusy=true;formChanged();bookMsg("קובע את התור…",true);
+  fetch(cfg.inboxUrl,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"book",phone:sel.phone,name:sel.name.trim(),day:sel.day,time:sel.time,svc:sel.svc})})
+    .then(function(r){return r.json()}).then(function(j){
+      botBusy=false;
+      if(j.ok){bookMsg("");cfg.busy.push({d:sel.day,s:sel.time,m:(svcById(sel.svc)||{}).dur||30});showDone("saved");return}
+      var e=j.error;
+      if(e==="taken"){bookMsg("השעה הזו נתפסה הרגע. בחרו שעה אחרת.");cfg.busy.push({d:sel.day,s:sel.time,m:30});sel.time=null;setTimeout(function(){renderSlots();show("sTime",-1)},1500)}
+      else if(e==="limit")bookMsg("כבר יש למספר הזה תורים שמחכים. לשינוי כתבו ל"+cfg.biz.name+".");
+      else if(e==="phone")bookMsg("מספר הטלפון לא תקין.");
+      else{bookMsg("");showDone(false)}
+      formChanged();
+    }).catch(function(){botBusy=false;bookMsg("");showDone(false)});
+}
 function showDone(auto){
   var text=buildMessage();
   $("ticket2").innerHTML=ticketHtml(true);
@@ -771,7 +788,7 @@ function showDone(auto){
   $("gcalBtn").href=calLink();$("icsBtn").hidden=false;
   var sv=svcById(sel.svc);mineAdd({day:sel.day,time:sel.time,svc:sv.name,total:total(),sent:Date.now(),ok:!!auto});
   $("doneTitle").textContent=auto?"התור נקבע ✓":"הבקשה מוכנה";
-  $("doneNote").textContent=auto?"שלחנו לך אישור בוואטסאפ, ותקבל תזכורת לפני התור. נתראה!":"התור עוד לא נקבע. שלחו את הבקשה מהוואטסאפ של המספר שהזנתם. "+cfg.biz.name+" יבדוק ויאשר לכם בחזרה בוואטסאפ, ורק אז התור סגור.";
+  $("doneNote").textContent=auto==="saved"?"התור נשמר ביומן ✓ תקבל אישור בוואטסאפ בדקות הקרובות, ותזכורת לפני התור.":auto?"שלחנו לך אישור בוואטסאפ, ותקבל תזכורת לפני התור. נתראה!":"התור עוד לא נקבע. שלחו את הבקשה מהוואטסאפ של המספר שהזנתם. "+cfg.biz.name+" יבדוק ויאשר לכם בחזרה בוואטסאפ, ורק אז התור סגור.";
   $("waBtn").hidden=auto;$("copyBtn").hidden=auto;$("waPlainRow").hidden=auto;$("editBtn").hidden=auto;if(auto)$("copyFallback").hidden=true;
   if(auto){otpSent=false;$("fcode").value="";setBookUi()}
   var c=$("sDone").querySelector(".check"),n=c.cloneNode(true);c.parentNode.replaceChild(n,c);
@@ -919,7 +936,22 @@ var ghDb={collection:function(){return {
   onSnapshot:function(f){listeners.push(f);emit();return function(){}}
 }}};
 var ghArtifact={publish:async function(files){var o=JSON.parse(files["config.json"].content);await saveConfig(function(l){o.botUrl=l.botUrl;o.botAt=l.botAt;o.busy=busyFromStore();return o},"settings")}};
-setInterval(function(){if(ghToken&&!$("admin").hidden&&!editingNote)loadStore().then(emit).catch(function(){})},60000);
+var inboxBusy=false;
+async function importInbox(){
+  if(inboxBusy||!ghToken)return;var ib=null;Object.keys(store).forEach(function(k){if(store[k]&&store[k].kind==="inbox")ib=store[k]});
+  if(!ib||!ib.url)return;inboxBusy=true;
+  try{
+    var r=await fetch(ib.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"list",secret:ib.secret})});
+    var j=await r.json();if(!j.ok||!j.items||!j.items.length)return;
+    var ids=j.items.map(function(x){return x.id});
+    await mutate(function(st){j.items.forEach(function(x){if(st[x.id])return;
+      var clash=Object.keys(st).some(function(k){var a=st[k];return a.date===x.day&&a.time&&toMin(x.time)<toMin(a.time)+(+a.dur||0)&&toMin(x.time)+x.dur>toMin(a.time)});
+      st[x.id]={kind:"appt",date:x.day,time:x.time,dur:x.dur,name:x.name,phone:x.phone,note:x.svcName+(clash?" ⚠️ חפיפה עם תור אחר":""),price:x.price,source:"web",confirmSent:false,created:x.created,reminded:false}})},"bookings from inbox");
+    await fetch(ib.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"ack",secret:ib.secret,ids:ids})});
+    setStatus("✓ "+ids.length+" תורים חדשים נכנסו ליומן");
+  }catch(_){}finally{inboxBusy=false}
+}
+setInterval(function(){if(ghToken&&!$("admin").hidden&&!editingNote)loadStore().then(function(){emit();return importInbox()}).catch(function(){})},60000);
 
 /* ---- login ---- */
 function tokKey(u){return TOK_KEY+":"+String(u||"").trim().toLowerCase()}
@@ -958,7 +990,7 @@ $("loginForm").addEventListener("submit",async function(e){
     try{await loadStore()}catch(err){ghToken=null;return fail(err.code==="nouser"?"שם המשתמש לא קיים. משתמש מנהל יכול להוסיף אותו בלשונית כללי.":"שם משתמש או סיסמה שגויים.")}
     try{localStorage.setItem(tokKey(user),JSON.stringify(await encryptStr(pass,ghToken)));localStorage.setItem(TOK_KEY+":last",user)}catch(_){}
     if(needsSave)mutate(function(){},"secure data for users").catch(function(){});
-    btn.disabled=false;hideLogin();db=ghDb;uid="admin";openAdmin("cal");
+    btn.disabled=false;hideLogin();db=ghDb;uid="admin";openAdmin("cal");setTimeout(importInbox,500);
   }catch(err){fail("משהו השתבש. נסה שוב.")}
 });
 $("admLogout").addEventListener("click",function(){ghToken=null;ghPass=null;ghUser=null;dek=null;dekRaw=null;keysMap={};botKey=null;botStat=null;store={};appts=[];cmeta={};db=null;listeners=[];closeAdmin()});
