@@ -1111,7 +1111,7 @@ function renderTab(){
   if(curTab==="gen")waCheck();
   if(curTab==="cal"){$("pasteBox").value=pasteVal;$("histPhone").value=histVal;renderHist()}
 }
-var BOT_DEF={otp:"הקוד שלך לקביעת תור אצל {biz}: *{code}*\nהקוד בתוקף ל-10 דקות.",confirm:"היי {name}, התור שלך נקבע ✅\n{service}\n{date} בשעה {time}\n📍 {area}\n\nהוספה ליומן: {cal}\n\nצריך לבטל או לשנות? כתבו ל{biz}: {adminPhone}",reminder:"היי {name}, תזכורת: התור שלך אצל {biz} היום בשעה {time} ✂️\n📍 {area}\nנתראה!",adminNew:"📅 תור חדש נקבע\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancel:"היי {name}, התור שלך ב{date} בשעה {time} בוטל. לקביעת תור חדש: {site}",autoReply:"שלום! זה מספר אוטומטי לאישורי תורים של {biz} 💈\nלקביעת תור: {site}\nלשאלות כתבו ל{biz}: {adminPhone}",reminderMin:60,notifyAdmin:true,sendConfirm:true,sendReminder:true,maxFuturePerPhone:2};
+var BOT_DEF={otp:"הקוד שלך לקביעת תור אצל {biz}: *{code}*\nהקוד בתוקף ל-10 דקות.",confirm:"היי {name}, התור שלך נקבע ✅\n{service}\n{date} בשעה {time}\n📍 {area}\n\nהוספה ליומן: {cal}\n\nלביטול התור השיבו *ביטול* להודעה הזו.",cancelOk:"התור שלך ב{date} בשעה {time} בוטל ✅\nלקביעת תור חדש: {site}",adminCancel:"❌ תור בוטל{by}\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancelMinBefore:60,reminder:"היי {name}, תזכורת: התור שלך אצל {biz} היום בשעה {time} ✂️\n📍 {area}\nנתראה!",adminNew:"📅 תור חדש נקבע\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancel:"היי {name}, התור שלך ב{date} בשעה {time} בוטל. לקביעת תור חדש: {site}",autoReply:"שלום! זה מספר אוטומטי לאישורי תורים של {biz} 💈\nלקביעת תור: {site}\nלשאלות כתבו ל{biz}: {adminPhone}",reminderMin:60,notifyAdmin:true,sendConfirm:true,sendReminder:true,maxFuturePerPhone:2};
 var botStat=null,botKey=null,botPoll=null,qrLib=null;
 function botSettings(){draft.bot=Object.assign({},BOT_DEF,draft.bot||{});return draft.bot}
 async function getBotKey(){if(botKey)return botKey;var h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("ariel-bot:"+b64e(dekRaw)));botKey=Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,"0")}).join("");return botKey}
@@ -1149,9 +1149,10 @@ function waHtml(){
     '<label class="row"><input type="checkbox" data-b="notifyAdmin" '+(b.notifyAdmin?'checked':'')+'> הודעה למנהלים על כל תור חדש</label>'+
     '<div class="field" style="margin-top:10px"><label for="admPh">מספרי המנהלים שמקבלים הודעות (מופרדים בפסיק)</label><input id="admPh" dir="ltr" data-ap="1" value="'+esc((draft.adminPhones&&draft.adminPhones.length?draft.adminPhones:[draft.wa]).join(", "))+'"></div>'+
     '<div class="grid2" style="margin-top:10px"><div class="field"><label for="bRem">תזכורת כמה דקות לפני</label><input id="bRem" type="number" min="15" step="15" data-b="reminderMin" data-num="1" value="'+esc(b.reminderMin)+'"></div>'+
+    '<div class="field"><label for="bCan">הלקוח יכול לבטל עד כמה דקות לפני</label><input id="bCan" type="number" min="0" step="15" data-b="cancelMinBefore" data-num="1" value="'+esc(b.cancelMinBefore)+'"></div>'+
     '<div class="field"><label for="bMax">מקסימום תורים קרובים למספר</label><input id="bMax" type="number" min="1" max="10" data-b="maxFuturePerPhone" data-num="1" value="'+esc(b.maxFuturePerPhone)+'"></div></div></div>';
-  var T=[["confirm","אישור תור ללקוח"],["reminder","תזכורת ללקוח"],["adminNew","הודעה לאריאל על תור חדש"],["otp","קוד אימות"],["cancel","ביטול תור (כשמוחקים תור ביומן)"],["autoReply","תשובה אוטומטית למי שכותב לבוט"]];
-  h+='<div class="card"><h3>נוסח ההודעות</h3><p class="who">אפשר להשתמש ב: {name} {date} {time} {service} {area} {biz} {cal} {site} {adminPhone} {code}</p>';
+  var T=[["confirm","אישור תור ללקוח"],["reminder","תזכורת ללקוח"],["adminNew","הודעה לאריאל על תור חדש"],["otp","קוד אימות"],["cancel","ביטול תור מהניהול (ללקוח)"],["cancelOk","ביטול על ידי הלקוח (תשובה ללקוח)"],["adminCancel","הודעה למנהלים על ביטול"],["autoReply","תשובה אוטומטית למי שכותב לבוט"]];
+  h+='<div class="card"><h3>נוסח ההודעות</h3><p class="who">אפשר להשתמש ב: {name} {phone} {date} {time} {service} {area} {biz} {cal} {site} {adminPhone} {code} {by}</p>';
   T.forEach(function(x){h+='<div class="field"><label for="bt_'+x[0]+'">'+x[1]+'</label><textarea id="bt_'+x[0]+'" data-b="'+x[0]+'" rows="4" style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;width:100%">'+esc(b[x[0]])+'</textarea></div>'});
   h+='<p class="who">השינויים נשמרים עם ״שמור ופרסם שינויים״ למטה.</p></div>';
   if(st&&st.log&&st.log.length){h+='<div class="card"><h3>יומן פעילות</h3>';st.log.slice(0,30).forEach(function(e){var d=new Date(e.t);h+='<div class="row"><span class="who" style="width:92px;flex:none;font-variant-numeric:tabular-nums">'+pad(d.getDate())+"."+pad(d.getMonth()+1)+" "+pad(d.getHours())+":"+pad(d.getMinutes())+'</span><span class="grow">'+esc(e.text)+'</span></div>'});h+='</div>'}
@@ -1345,7 +1346,7 @@ $("tabBody").addEventListener("click",async function(e){
     try{
       if(old&&old.kind==="appt"&&old.phone){var cx=clone(old);cx.status="cancelled";cx.cancelledAt=Date.now();await db.collection("data/users/"+uid).doc(id).set(cx);setStatus("✓ התור בוטל (נשאר בכרטיס הלקוח)")}
       else{await db.collection("data/users/"+uid).doc(id).delete();setStatus("✓ נמחק")}
-      if(old&&old.kind==="appt"&&old.phone&&old.date>=ymd(new Date()))botAdmin("/admin/cancel",{phone:old.phone,name:old.name,date:old.date,time:old.time}).then(function(){setStatus("✓ נמחק, והלקוח קיבל הודעת ביטול")}).catch(function(){});
+      if(old&&old.kind==="appt"&&old.phone&&old.date>=ymd(new Date()))botAdmin("/admin/cancel",{phone:old.phone,name:old.name,date:old.date,time:old.time,note:old.note}).then(function(){setStatus("✓ נמחק, והלקוח קיבל הודעת ביטול")}).catch(function(){});
     }catch(_){setStatus("המחיקה נכשלה","dirty")}
   }
   else if(t.id==="nuAdd"){

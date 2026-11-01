@@ -146,7 +146,9 @@ async function changeStore(apply, msg) {
 /* ---------- bot texts (overridable from the admin page: config.bot) ---------- */
 const DEFAULT_BOT = {
   otp: "הקוד שלך לקביעת תור אצל {biz}: *{code}*\nהקוד בתוקף ל-10 דקות.",
-  confirm: "היי {name}, התור שלך נקבע ✅\n{service}\n{date} בשעה {time}\n📍 {area}\n\nהוספה ליומן: {cal}\n\nצריך לבטל או לשנות? כתבו ל{biz}: {adminPhone}",
+  confirm: "היי {name}, התור שלך נקבע ✅\n{service}\n{date} בשעה {time}\n📍 {area}\n\nהוספה ליומן: {cal}\n\nלביטול התור השיבו *ביטול* להודעה הזו.",
+  cancelOk: "התור שלך ב{date} בשעה {time} בוטל ✅\nלקביעת תור חדש: {site}",
+  adminCancel: "❌ תור בוטל{by}\n{name} · {phone}\n{service}\n{date} בשעה {time}",
   reminder: "היי {name}, תזכורת: התור שלך אצל {biz} היום בשעה {time} ✂️\n📍 {area}\nנתראה!",
   adminNew: "📅 תור חדש נקבע\n{name} · {phone}\n{service}\n{date} בשעה {time}",
   cancel: "היי {name}, התור שלך ב{date} בשעה {time} בוטל. לקביעת תור חדש: {site}",
@@ -237,8 +239,12 @@ async function startWA() {
     for (const m of messages) {
       try {
         if (!m.message || m.key.fromMe) continue;
-        const jid = m.key.remoteJid || "";
-        if (!jid.endsWith("@s.whatsapp.net")) continue; // no groups / status
+        let jid = m.key.remoteJid || "";
+        if (jid.endsWith("@g.us") || jid === "status@broadcast") continue; // no groups / status
+        const pnJid = jid.endsWith("@s.whatsapp.net") ? jid : (m.key.senderPn || m.key.remoteJidAlt || m.key.participantPn || "");
+        const text = (m.message.conversation || (m.message.extendedTextMessage && m.message.extendedTextMessage.text) || "").trim();
+        if (/^(ביטול|לבטל|בטל|בטלו|אני רוצה לבטל|cancel)(?=$|[\s.!?,])/i.test(text)) { await clientCancel(jid, pnJid); continue; }
+        if (!pnJid && !jid.endsWith("@lid")) continue;
         const last = repliedAt.get(jid) || 0;
         if (Date.now() - last < 24 * 3600e3) continue; // answer each person at most once a day
         repliedAt.set(jid, Date.now());
@@ -246,6 +252,31 @@ async function startWA() {
       } catch (e) { log("error", "תשובה אוטומטית נכשלה: " + e.message); }
     }
   });
+}
+/* client replies "ביטול": cancel his next appointment, tell him and the admins */
+async function clientCancel(jid, pnJid) {
+  const phone = pnJid ? "0" + pnJid.split("@")[0].replace(/^972/, "") : "";
+  const reply = t => sock.sendMessage(jid, { text: t }).catch(() => {});
+  if (!phoneOk(phone)) { await reply("לא הצלחתי לזהות את המספר. לביטול כתבו ל" + vars({}).biz + ": " + (CFG.wa || "")); return; }
+  try {
+    CFG = await readConfig();
+    const st = botSet(), now = Date.now();
+    let found = null, late = false;
+    await changeStore(d => {
+      const next = Object.entries(d).filter(([, a]) => live(a) && a.kind === "appt" && pLocal(a.phone) === phone && a.date && a.time)
+        .map(([id, a]) => [id, a, parseYmd(a.date).getTime() + toMin(a.time) * 60e3]).filter(x => x[2] > now).sort((x, y) => x[2] - y[2])[0];
+      if (!next) return null;
+      found = next[1];
+      if (next[2] - now < (+st.cancelMinBefore || 60) * 60e3) { late = true; return null; }
+      d[next[0]] = Object.assign({}, next[1], { status: "cancelled", cancelledAt: now, cancelledBy: "client" });
+      return d;
+    }, "client cancelled");
+    if (!found) { await reply("לא מצאתי תור קרוב על המספר הזה. לקביעת תור: " + SITE_URL); return; }
+    if (late) { await reply("אי אפשר לבטל דרך הבוט פחות מ-" + (+st.cancelMinBefore || 60) + " דקות לפני התור. כתבו ל" + vars({}).biz + ": " + (CFG.wa || "")); return; }
+    await reply(fill(st.cancelOk, vars(found)));
+    for (const ph of adminPhones()) await sendWA(ph, fill(st.adminCancel, vars(found, { by: " על ידי הלקוח" }))).catch(() => {});
+    log("cancel", "הלקוח " + (found.name || phone) + " ביטל את התור " + found.date + " " + found.time);
+  } catch (e) { log("error", "ביטול על ידי לקוח נכשל: " + e.message); await reply("משהו השתבש. כתבו ל" + vars({}).biz + ": " + (CFG.wa || "")); }
 }
 async function sendWA(phone, text) {
   if (waState !== "open") throw Object.assign(new Error("whatsapp offline"), { code: "offline" });
@@ -334,6 +365,8 @@ const server = http.createServer(async (req, res) => {
       }
       if (p === "/admin/cancel" && req.method === "POST") {
         const b = await body(req);
+        CFG = await readConfig();
+        for (const ph of adminPhones()) sendWA(ph, fill(botSet().adminCancel, vars(b, { by: " מהניהול" }))).catch(() => {});
         try { await sendWA(b.phone, fill(botSet().cancel, vars(b))); log("cancel", "הודעת ביטול נשלחה ל-" + pLocal(b.phone)); return send(res, 200, { ok: true }); }
         catch (e) { return send(res, 503, { error: e.code || e.message }); }
       }
