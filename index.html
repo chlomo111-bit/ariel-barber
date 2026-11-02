@@ -1369,7 +1369,7 @@ function infoText(){
   lines.push("");
   var groups=[];(c.hours||[]).forEach(function(h,i){var k=h.closed?"סגור":h.open+"–"+h.close,g=groups[groups.length-1];if(g&&g.k===k)g.to=i;else groups.push({k:k,from:i,to:i})});
   groups.forEach(function(g){if(g.k==="סגור")return;lines.push("🕐 "+WDL[g.from]+(g.to>g.from?"–"+WDL[g.to]:"")+" "+g.k)});
-  lines.push("📍 "+c.biz.area,"","לקביעת תור:","https://chlomo111-bit.github.io/ariel-barber/");
+  lines.push("📍 "+c.biz.area,"","לקביעת תור:",(c.siteUrl||"https://ariel.barbershops.company/"));
   return lines.join("\n");
 }
 function cliHtml(){

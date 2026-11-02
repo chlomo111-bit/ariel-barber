@@ -185,13 +185,15 @@ const DEFAULT_BOT = {
   ]
 };
 const adminPhones = () => { const l = (Array.isArray(CFG.adminPhones) && CFG.adminPhones.length ? CFG.adminPhones : [CFG.wa]).map(pLocal).filter(phoneOk); return [...new Set(l)]; };
-const SITE_URL = "https://" + GH.owner + ".github.io/" + GH.repo + "/";
+const SITE_DEFAULT = "https://ariel.barbershops.company/";
+/* the site address can be changed from config.json (siteUrl) */
+const siteUrl = () => { const u = String((CFG && CFG.siteUrl) || SITE_DEFAULT).trim(); return u.endsWith("/") ? u : u + "/"; };
 let CFG = {};
 const botSet = () => Object.assign({}, DEFAULT_BOT, CFG.bot || {});
 const vars = (a, extra) => {
   const st = botSet();
   return Object.assign({
-    biz: (CFG.biz && CFG.biz.name) || "אריאל", area: (CFG.biz && CFG.biz.area) || "", site: SITE_URL,
+    biz: (CFG.biz && CFG.biz.name) || "אריאל", area: (CFG.biz && CFG.biz.area) || "", site: siteUrl(),
     adminPhone: CFG.wa || "", name: a.name || "", phone: pLocal(a.phone || ""), service: a.note || "",
     date: a.date ? dateLong(a.date) : "", time: a.time || "", cal: a.date ? calLink(a) : "", reminderMin: st.reminderMin
   }, extra || {});
@@ -321,7 +323,7 @@ async function reviewAskTick() {
     const texts = st.reviewTexts && st.reviewTexts.length ? st.reviewTexts : DEFAULT_BOT.reviewTexts, done = [];
     for (const [id, a] of due) {
       const first = String(a.name || "").trim().split(" ")[0];
-      const msg = fill(texts[randomInt(0, texts.length)], vars(a, { first, review: SITE_URL + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
+      const msg = fill(texts[randomInt(0, texts.length)], vars(a, { first, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
       try { await sendWA(a.phone, msg); log("review", "בקשת ביקורת נשלחה ל-" + (a.name || a.phone)); } catch (e) { if (e.code !== "nowa") { log("error", "בקשת ביקורת נכשלה: " + e.message); continue; } }
       done.push(id);
     }
@@ -336,7 +338,7 @@ async function clientOptOut(jid, pnJid) {
   if (!phoneOk(phone)) return;
   try {
     await changeStore(d => { d["c" + phone] = Object.assign({ kind: "client", phone }, d["c" + phone] || {}, { optOut: true, optOutAt: Date.now() }); return d; }, "client opted out");
-    await waSend(jid, { text: "הוסרת מרשימת ההודעות ✅ תמיד אפשר לקבוע תור כאן: " + SITE_URL }).catch(() => {});
+    await waSend(jid, { text: "הוסרת מרשימת ההודעות ✅ תמיד אפשר לקבוע תור כאן: " + siteUrl() }).catch(() => {});
     log("winback", phone + " ביקש להסיר מההודעות");
   } catch (e) { log("error", "הסרה נכשלה: " + e.message); }
 }
@@ -427,7 +429,7 @@ async function clientCancel(jid, pnJid) {
       d[next[0]] = Object.assign({}, next[1], { status: "cancelled", cancelledAt: now, cancelledBy: "client", cancelNotified: true });
       return d;
     }, "client cancelled");
-    if (!found) { await reply("לא מצאתי תור קרוב על המספר הזה. לקביעת תור: " + SITE_URL); return; }
+    if (!found) { await reply("לא מצאתי תור קרוב על המספר הזה. לקביעת תור: " + siteUrl()); return; }
     if (late) { await reply("אי אפשר לבטל דרך הבוט פחות מ-" + (+st.cancelMinBefore || 60) + " דקות לפני התור. כתבו ל" + vars({}).biz + ": " + (CFG.wa || "")); return; }
     await reply(fill(st.cancelOk, vars(found)));
     for (const ph of adminPhones()) await sendWA(ph, fill(st.adminCancel, vars(found, { by: " על ידי הלקוח" }))).catch(() => {});

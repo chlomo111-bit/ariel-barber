@@ -1,7 +1,7 @@
 # אריאל ספר · קביעת תור
 
 אתר קביעת תורים לאריאל, ספר גברים בחולון. מתארח ב-GitHub Pages:
-https://chlomo111-bit.github.io/ariel-barber/
+https://ariel.barbershops.company/
 
 - `index.html` – האתר (לקוחות + ניהול בכתובת `#admin` או "כניסת מנהל" בתחתית)
 - `config.json` – הגדרות ציבוריות, שעות תפוסות (בלי פרטי לקוחות) וכתובת הבוט
