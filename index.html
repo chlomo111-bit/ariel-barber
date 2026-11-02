@@ -794,6 +794,8 @@ $("instYes").addEventListener("click",function(){
 $("instOk").addEventListener("click",function(){$("instModal").hidden=true});
 $("instModal").addEventListener("click",function(e){if(e.target===this)this.hidden=true});
 instOffer();
+/* link from the review request: #review opens the form */
+if(location.hash==="#review"){setTimeout(function(){var r=$("reviews");if(r)r.scrollIntoView({behavior:reduce?"auto":"smooth",block:"start"});$("revOpen").click()},900)}
 
 /* ---- customer reviews ---- */
 var rvStars=0,rvOtp=false,rvBusy=false;
@@ -1274,7 +1276,7 @@ function renderTab(){
   if(curTab==="gen")waCheck();
   if(curTab==="cal"){$("pasteBox").value=pasteVal;$("histPhone").value=histVal;renderHist()}
 }
-var BOT_DEF={otp:"הקוד שלך לקביעת תור אצל {biz}: *{code}*\nהקוד בתוקף ל-10 דקות.",confirm:"היי {name}, התור שלך נקבע ✅\n{service}\n{date} בשעה {time}\n📍 {area}\n\nהוספה ליומן: {cal}\n\nלביטול התור השיבו *ביטול* להודעה הזו.",cancelOk:"התור שלך ב{date} בשעה {time} בוטל ✅\nלקביעת תור חדש: {site}",adminCancel:"❌ תור בוטל{by}\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancelMinBefore:60,winback:true,winbackDays:14,winbackMaxPerDay:10,reminder:"היי {name}, תזכורת: התור שלך אצל {biz} היום בשעה {time} ✂️\n📍 {area}\nנתראה!",adminNew:"📅 תור חדש נקבע\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancel:"היי {name}, התור שלך ב{date} בשעה {time} בוטל. לקביעת תור חדש: {site}",autoReply:"שלום! זה מספר אוטומטי לאישורי תורים של {biz} 💈\nלקביעת תור: {site}\nלשאלות כתבו ל{biz}: {adminPhone}",reminderMin:60,notifyAdmin:true,sendConfirm:true,sendReminder:true,maxFuturePerPhone:2};
+var BOT_DEF={otp:"הקוד שלך לקביעת תור אצל {biz}: *{code}*\nהקוד בתוקף ל-10 דקות.",confirm:"היי {name}, התור שלך נקבע ✅\n{service}\n{date} בשעה {time}\n📍 {area}\n\nהוספה ליומן: {cal}\n\nלביטול התור השיבו *ביטול* להודעה הזו.",cancelOk:"התור שלך ב{date} בשעה {time} בוטל ✅\nלקביעת תור חדש: {site}",adminCancel:"❌ תור בוטל{by}\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancelMinBefore:60,winback:true,winbackDays:14,winbackMaxPerDay:10,reviewAsk:true,reviewAskMin:30,reminder:"היי {name}, תזכורת: התור שלך אצל {biz} היום בשעה {time} ✂️\n📍 {area}\nנתראה!",adminNew:"📅 תור חדש נקבע\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancel:"היי {name}, התור שלך ב{date} בשעה {time} בוטל. לקביעת תור חדש: {site}",autoReply:"שלום! זה מספר אוטומטי לאישורי תורים של {biz} 💈\nלקביעת תור: {site}\nלשאלות כתבו ל{biz}: {adminPhone}",reminderMin:60,notifyAdmin:true,sendConfirm:true,sendReminder:true,maxFuturePerPhone:2};
 var botStat=null,botKey=null,botPoll=null,qrLib=null;
 function botSettings(){draft.bot=Object.assign({},BOT_DEF,draft.bot||{});return draft.bot}
 async function getBotKey(){if(botKey)return botKey;var h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("ariel-bot:"+b64e(dekRaw)));botKey=Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,"0")}).join("");return botKey}
@@ -1312,6 +1314,8 @@ function waHtml(){
     '<label class="row"><input type="checkbox" data-b="notifyAdmin" '+(b.notifyAdmin?'checked':'')+'> הודעה למנהלים על כל תור חדש</label>'+
     '<div class="field" style="margin-top:10px"><label for="admPh">מספרי המנהלים שמקבלים הודעות (מופרדים בפסיק)</label><input id="admPh" dir="ltr" data-ap="1" value="'+esc((draft.adminPhones&&draft.adminPhones.length?draft.adminPhones:[draft.wa]).join(", "))+'"></div>'+
     '<label class="row"><input type="checkbox" data-b="winback" '+(b.winback?'checked':'')+'> הודעת ״הגיע הזמן לתספורת״ ללקוחות שלא הגיעו ולא קבעו תור (רביעי–חמישי, 11:00–18:00)</label>'+
+    '<label class="row"><input type="checkbox" data-b="reviewAsk" '+(b.reviewAsk?'checked':'')+'> בקשת ביקורת ללקוח אחרי התור</label>'+
+    '<div class="field"><label for="bRvA">כמה דקות אחרי סוף התור</label><input id="bRvA" type="number" min="5" step="5" data-b="reviewAskMin" data-num="1" value="'+esc(b.reviewAskMin)+'"></div>'+
     '<div class="grid2"><div class="field"><label for="bWbD">אחרי כמה ימים בלי תספורת</label><input id="bWbD" type="number" min="7" max="90" data-b="winbackDays" data-num="1" value="'+esc(b.winbackDays)+'"></div>'+
     '<div class="field"><label for="bWbM">מקסימום הודעות כאלה ביום</label><input id="bWbM" type="number" min="1" max="40" data-b="winbackMaxPerDay" data-num="1" value="'+esc(b.winbackMaxPerDay)+'"></div></div>'+
     '<div class="grid2" style="margin-top:10px"><div class="field"><label for="bRem">תזכורת כמה דקות לפני</label><input id="bRem" type="number" min="15" step="15" data-b="reminderMin" data-num="1" value="'+esc(b.reminderMin)+'"></div>'+

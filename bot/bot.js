@@ -174,7 +174,15 @@ const DEFAULT_BOT = {
     "היי {first} 💈 לפני שהתורים לסוף השבוע נגמרים, קבע לך מקום:\n{site}",
     "אהלן {first}! שבועיים בלי תספורת זה הרבה 😅 קובעים עכשיו:\n{site}"
   ],
-  winbackFooter: "\n\nלהסרה מההודעות השיבו *הסר*"
+  winbackFooter: "\n\nלהסרה מההודעות השיבו *הסר*",
+  reviewAsk: true,
+  reviewAskMin: 30,
+  reviewTexts: [
+    "היי {first}, תודה שבאת היום ✂️ איך יצא? נשמח אם תשאיר ביקורת קצרה, זה לוקח 20 שניות 🙏\n{review}",
+    "{first}, מקווים שאתה מרוצה מהתספורת 😎 נשמח לשמוע מה דעתך:\n{review}",
+    "תודה {first}! 💈 אם נהנית, ביקורת קטנה עוזרת לנו מאוד:\n{review}",
+    "היי {first} 👋 איך התספורת? דרג אותנו בכמה שניות:\n{review}"
+  ]
 };
 const adminPhones = () => { const l = (Array.isArray(CFG.adminPhones) && CFG.adminPhones.length ? CFG.adminPhones : [CFG.wa]).map(pLocal).filter(phoneOk); return [...new Set(l)]; };
 const SITE_URL = "https://" + GH.owner + ".github.io/" + GH.repo + "/";
@@ -292,6 +300,36 @@ async function startWA() {
     }
   });
 }
+/* ask for a review N minutes after the appointment ends (once, only if he has not reviewed yet) */
+let rvAskBusy = false;
+async function reviewAskTick() {
+  if (rvAskBusy || waState !== "open") return;
+  const st = botSet(); if (!st.reviewAsk) return;
+  const h = new Date().getHours(); if (h < 9 || h >= 21) return;
+  rvAskBusy = true;
+  try {
+    const docs = await readStore(), now = Date.now(), wait = (+st.reviewAskMin || 30) * 60e3;
+    const due = Object.entries(docs).filter(([, a]) => {
+      if (!live(a) || a.kind !== "appt" || !a.phone || a.reviewAsked || !a.date || !a.time) return false;
+      const end = parseYmd(a.date).getTime() + (toMin(a.time) + (+a.dur || 30)) * 60e3;
+      if (now < end + wait || now > end + 6 * 3600e3) return false; // only fresh visits
+      const meta = docs["c" + pLocal(a.phone)] || {};
+      return !meta.reviewId && !meta.optOut;
+    });
+    if (!due.length) return;
+    CFG = await readConfig();
+    const texts = st.reviewTexts && st.reviewTexts.length ? st.reviewTexts : DEFAULT_BOT.reviewTexts, done = [];
+    for (const [id, a] of due) {
+      const first = String(a.name || "").trim().split(" ")[0];
+      const msg = fill(texts[randomInt(0, texts.length)], vars(a, { first, review: SITE_URL + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
+      try { await sendWA(a.phone, msg); log("review", "בקשת ביקורת נשלחה ל-" + (a.name || a.phone)); } catch (e) { if (e.code !== "nowa") { log("error", "בקשת ביקורת נכשלה: " + e.message); continue; } }
+      done.push(id);
+    }
+    if (done.length) await changeStore(d => { done.forEach(id => { if (d[id]) d[id].reviewAsked = true; }); return d; }, "review requests sent");
+  } catch (e) { log("error", "בקשות ביקורת: " + e.message); }
+  finally { rvAskBusy = false; }
+}
+
 /* client replies "הסר": no more come-back messages */
 async function clientOptOut(jid, pnJid) {
   const phone = pnJid ? "0" + pnJid.split("@")[0].replace(/^972/, "") : "";
@@ -690,6 +728,7 @@ function startTunnel() {
   setInterval(reminderTick, 60e3);
   setInterval(() => gcalTick(false), 60e3);
   setInterval(winbackTick, 60e3);
+  setInterval(reviewAskTick, 2 * 60e3);
   setInterval(inboxTick, 45e3); setTimeout(inboxTick, 5000); setTimeout(() => gcalTick(true), 8000);
   setInterval(() => { for (const [k, v] of OTP) if (v.exp < Date.now()) OTP.delete(k); }, 10 * 60e3);
 })();
