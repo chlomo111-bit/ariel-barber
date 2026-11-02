@@ -284,8 +284,30 @@ async function clientOptOut(jid, pnJid) {
 
 /* ---------- come-back messages: clients who have not come for N days and have nothing booked ---------- */
 let wbDay = "", wbCount = 0, wbLast = 0, wbBusy = false;
+/* test: 2 different come-back texts to each admin, requested by config.winbackTest */
+async function winbackTest() {
+  const st = botSet(), texts = (st.winbackTexts && st.winbackTexts.length ? st.winbackTexts : DEFAULT_BOT.winbackTexts);
+  const order = texts.map((t, i) => i).sort(() => Math.random() - 0.5);
+  let k = 0;
+  for (const ph of adminPhones()) {
+    for (let n = 0; n < 2; n++) {
+      const msg = "🧪 בדיקה (" + (n + 1) + "/2)\n\n" + fill(texts[order[k++ % texts.length]], vars({}, { first: "" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "") + (st.winbackFooter || "");
+      await sendWA(ph, msg).catch(e => log("error", "בדיקה ל-" + ph + " נכשלה: " + e.message));
+      await new Promise(r => setTimeout(r, 4000));
+    }
+  }
+  log("winback", "נשלחו הודעות בדיקה למנהלים");
+}
 async function winbackTick() {
   if (wbBusy || waState !== "open") return;
+  if (CFG.winbackTest) {
+    wbBusy = true;
+    try {
+      await updateFile("config.json", readConfig, writeConfig, c => { if (!c.winbackTest) return null; delete c.winbackTest; return c; }, "winback test done");
+      CFG = await readConfig(); await winbackTest();
+    } catch (e) { log("error", "בדיקה: " + e.message); } finally { wbBusy = false; }
+    return;
+  }
   const now = new Date(), st = botSet();
   if (!st.winback) return;
   if (!(st.winbackDaysOfWeek || [3, 4]).includes(now.getDay()) || now.getHours() < 11 || now.getHours() >= 18) return;
