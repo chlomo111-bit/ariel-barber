@@ -9,6 +9,12 @@
 <meta property="og:description" content="קובעים תור אונליין בכמה נגיעות · חולון, ליד קניון חולון">
 <meta property="og:locale" content="he_IL">
 <meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="אריאל ספר">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23c9a45c'/%3E%3Ccircle cx='32' cy='32' r='26' fill='%230b0a08'/%3E%3Crect x='27' y='12' width='10' height='40' rx='5' fill='%23f5efe3'/%3E%3Cpath d='M27 20l10-5v5l-10 5zM27 30l10-5v5l-10 5zM27 40l10-5v5l-10 5z' fill='%23c9a45c'/%3E%3C/svg%3E">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>אריאל ספר · קביעת תור</title>
@@ -253,6 +259,23 @@ body.adm .wa-fab{display:none}
 .tdi b{font-variant-numeric:tabular-nums}
 .tdi.done{opacity:.5}.tdi.now{border-color:var(--gold-lt)}
 .calhead h3{flex:1;text-align:center}
+/* install as app */
+.instbar{position:fixed;z-index:36;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+  max-width:480px;margin:0 auto;background:var(--surface);border:1px solid var(--gold-dk);border-radius:20px;padding:14px;box-shadow:0 14px 40px rgba(0,0,0,.6);animation:pop .35s ease both}
+.instrow{display:flex;align-items:center;gap:12px;text-align:right}
+.instrow img{width:56px;height:56px;border-radius:14px;flex:none}
+.instrow b{display:block;font-size:17px}
+.instrow span{display:block;color:var(--muted);font-size:14px}
+.instbtns{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:12px}
+.instbtns .cta{min-height:50px;font-size:17px}
+.instbtns .ghost{min-height:50px}
+.instmodal{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.7);display:grid;place-items:center;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.instcard{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--gold-dk);border-radius:24px;padding:18px;display:grid;gap:12px}
+.insteps{list-style:none;margin:0;padding:0;display:grid;gap:8px;counter-reset:st}
+.insteps li{counter-increment:st;display:flex;align-items:center;gap:12px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:right;font-size:15px}
+.insteps li::before{content:counter(st);flex:none;width:34px;height:34px;border-radius:10px;background:#2a2213;color:var(--gold-lt);display:grid;place-items:center;font-weight:800}
+.insteps li small{display:block;color:var(--muted);font-size:12px}
+@keyframes pop{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 /* reviews */
 .reviews{text-align:center;padding-block:34px 6px;border-top:1px solid var(--line);margin-top:10px}
 .reviews h2{font-size:26px;font-weight:800}
@@ -464,6 +487,18 @@ body.adm .wa-fab{display:none}
       <p class="fine">רק לקוחות שקבעו תור יכולים לכתוב ביקורת. מספר הטלפון לא מתפרסם.</p>
     </form>
   </section>
+
+  <div class="instbar" id="instBar" hidden role="dialog" aria-label="התקנה כאפליקציה">
+    <div class="instrow"><img src="icon-192.png" alt="" width="56" height="56"><div><b>אריאל ספר כאפליקציה בטלפון</b><span>פותחים בנגיעה מהמסך, בלי לחפש את הקישור</span></div></div>
+    <div class="instbtns"><button class="cta md" id="instYes" type="button">להוסיף (3 נגיעות)</button><button class="ghost" id="instNo" type="button">לא עכשיו</button></div>
+  </div>
+  <div class="instmodal" id="instModal" hidden role="dialog" aria-modal="true" aria-labelledby="instTitle">
+    <div class="instcard">
+      <div class="instrow"><img src="icon-192.png" alt="" width="56" height="56"><div><b id="instTitle">אריאל ספר</b><span>הוספה למסך הבית, ככה:</span></div></div>
+      <ol class="insteps" id="instSteps"></ol>
+      <button class="ghost" id="instOk" type="button">הבנתי</button>
+    </div>
+  </div>
 
   <footer>
     <div id="footBiz">אריאל · ספר גברים · חולון</div>
@@ -731,6 +766,34 @@ $("mineList").addEventListener("click",function(e){
     b.disabled=false;b.textContent="הביטול נכשל, נסו שוב";
   }).catch(function(){b.disabled=false;b.textContent="אין חיבור לשירות כרגע. נסו שוב או כתבו ל"+cfg.biz.name});
 });
+
+/* ---- install as an app: offered once per phone ---- */
+var INST_KEY="arielInstallOffered",instEvt=null;
+function isStandalone(){return (window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true}
+function instSeen(){try{return localStorage.getItem(INST_KEY)==="1"}catch(_){return true}}
+function instMark(){try{localStorage.setItem(INST_KEY,"1")}catch(_){}}
+if("serviceWorker" in navigator){try{navigator.serviceWorker.register("sw.js").catch(function(){})}catch(_){}}
+window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();instEvt=e});
+function instSteps(){
+  var ua=navigator.userAgent||"",ios=/iPhone|iPad|iPod/.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1),crios=/CriOS|FxiOS|EdgiOS/.test(ua);
+  if(ios&&crios)return ['נוגעים ב־⋯ למטה, ליד שורת הכתובת','בוחרים ״שיתוף״ <small>(Share)</small>','גוללים ובוחרים ״הוספה למסך הבית״ <small>(Add to Home Screen)</small>','נוגעים ב״הוספה״ <small>(Add)</small>'];
+  if(ios)return ['נוגעים בכפתור השיתוף ⬆︎ בתחתית המסך','גוללים ובוחרים ״הוספה למסך הבית״ <small>(Add to Home Screen)</small>','נוגעים ב״הוספה״ למעלה <small>(Add)</small>'];
+  return ['נוגעים ב־⋮ למעלה בדפדפן','בוחרים ״הוספה למסך הבית״ או ״התקנת אפליקציה״','מאשרים ב״הוספה״ / ״התקנה״'];
+}
+function instOffer(){
+  if(isStandalone()||instSeen())return;
+  setTimeout(function(){if(current==="home"&&!isStandalone()&&!instSeen()&&$("admin").hidden)$("instBar").hidden=false},2500);
+}
+$("instNo").addEventListener("click",function(){instMark();$("instBar").hidden=true});
+$("instYes").addEventListener("click",function(){
+  instMark();$("instBar").hidden=true;
+  if(instEvt){instEvt.prompt();instEvt.userChoice.finally(function(){instEvt=null});return}
+  $("instSteps").innerHTML=instSteps().map(function(t){return "<li><span>"+t+"</span></li>"}).join("");
+  $("instModal").hidden=false;try{$("instOk").focus()}catch(_){}
+});
+$("instOk").addEventListener("click",function(){$("instModal").hidden=true});
+$("instModal").addEventListener("click",function(e){if(e.target===this)this.hidden=true});
+instOffer();
 
 /* ---- customer reviews ---- */
 var rvStars=0,rvOtp=false,rvBusy=false;
