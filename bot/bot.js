@@ -15,7 +15,7 @@ const { spawn } = require("node:child_process");
 const { webcrypto: wc, createHash, randomInt } = require("node:crypto");
 const baileys = require("baileys");
 const makeWASocket = baileys.default;
-const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = baileys;
+const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers, makeCacheableSignalKeyStore } = baileys;
 const pino = require("pino");
 const qrTerm = require("qrcode-terminal");
 
@@ -217,12 +217,33 @@ function slotFree(docs, day, time, dur) {
 }
 
 /* ---------- WhatsApp ---------- */
+/* keep what we sent so WhatsApp can ask for it again (otherwise the phone shows "waiting for this message") */
+const SENT_FILE = path.join(__dirname, "sent-cache.json");
+const SENT = new Map();
+try { for (const [k, v] of JSON.parse(fs.readFileSync(SENT_FILE, "utf8"), baileys.BufferJSON.reviver)) SENT.set(k, v); } catch (_) {}
+let sentSaveT = null;
+function remember(r) {
+  if (r && r.key && r.key.id && r.message) {
+    SENT.set(r.key.id, r.message); if (SENT.size > 2000) SENT.delete(SENT.keys().next().value);
+    clearTimeout(sentSaveT); sentSaveT = setTimeout(() => { try { fs.writeFileSync(SENT_FILE, JSON.stringify([...SENT], baileys.BufferJSON.replacer)); } catch (_) {} }, 2000);
+  }
+  return r;
+}
+async function waSend(jid, content) { return remember(await sock.sendMessage(jid, content)); }
+const retryCounter = new Map();
+const msgRetryCounterCache = { get: k => retryCounter.get(k), set: (k, v) => { retryCounter.set(k, v); if (retryCounter.size > 5000) retryCounter.delete(retryCounter.keys().next().value); return true; }, del: k => retryCounter.delete(k), flushAll: () => retryCounter.clear() };
 let sock = null, waState = "starting", lastQr = null, me = null, pairCode = null, pairAsked = false;
 const repliedAt = new Map();
 async function startWA() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   let version; try { version = (await fetchLatestBaileysVersion()).version; } catch (_) {}
-  sock = makeWASocket({ auth: state, version, logger: pino({ level: "silent" }), browser: Browsers.macOS("Chrome"), markOnlineOnConnect: false });
+  const silent = pino({ level: "silent" });
+  sock = makeWASocket({
+    auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, silent) },
+    version, logger: silent, browser: Browsers.macOS("Chrome"), markOnlineOnConnect: false,
+    msgRetryCounterCache,
+    getMessage: async key => SENT.get(key.id) || undefined
+  });
   sock.ev.on("creds.update", saveCreds);
   sock.ev.on("connection.update", u => {
     if (u.qr) {
@@ -266,7 +287,7 @@ async function startWA() {
         const last = repliedAt.get(jid) || 0;
         if (Date.now() - last < 24 * 3600e3) continue; // answer each person at most once a day
         repliedAt.set(jid, Date.now());
-        await sock.sendMessage(jid, { text: fill(botSet().autoReply, vars({})) });
+        await waSend(jid, { text: fill(botSet().autoReply, vars({})) });
       } catch (e) { log("error", "תשובה אוטומטית נכשלה: " + e.message); }
     }
   });
@@ -277,7 +298,7 @@ async function clientOptOut(jid, pnJid) {
   if (!phoneOk(phone)) return;
   try {
     await changeStore(d => { d["c" + phone] = Object.assign({ kind: "client", phone }, d["c" + phone] || {}, { optOut: true, optOutAt: Date.now() }); return d; }, "client opted out");
-    await sock.sendMessage(jid, { text: "הוסרת מרשימת ההודעות ✅ תמיד אפשר לקבוע תור כאן: " + SITE_URL }).catch(() => {});
+    await waSend(jid, { text: "הוסרת מרשימת ההודעות ✅ תמיד אפשר לקבוע תור כאן: " + SITE_URL }).catch(() => {});
     log("winback", phone + " ביקש להסיר מההודעות");
   } catch (e) { log("error", "הסרה נכשלה: " + e.message); }
 }
@@ -353,7 +374,7 @@ async function winbackTick() {
 /* client replies "ביטול": cancel his next appointment, tell him and the admins */
 async function clientCancel(jid, pnJid) {
   const phone = pnJid ? "0" + pnJid.split("@")[0].replace(/^972/, "") : "";
-  const reply = t => sock.sendMessage(jid, { text: t }).catch(() => {});
+  const reply = t => waSend(jid, { text: t }).catch(() => {});
   if (!phoneOk(phone)) { await reply("לא הצלחתי לזהות את המספר. לביטול כתבו ל" + vars({}).biz + ": " + (CFG.wa || "")); return; }
   try {
     CFG = await readConfig();
@@ -380,7 +401,7 @@ async function sendWA(phone, text) {
   const intl = pIntl(phone);
   const [r] = await sock.onWhatsApp(intl);
   if (!r || !r.exists) throw Object.assign(new Error("not on whatsapp"), { code: "nowa" });
-  await sock.sendMessage(r.jid, { text });
+  await waSend(r.jid, { text });
 }
 
 /* ---------- verification codes + anti-spam (memory only) ---------- */
