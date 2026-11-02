@@ -177,6 +177,9 @@ const DEFAULT_BOT = {
   winbackFooter: "\n\nלהסרה מההודעות השיבו *הסר*",
   reviewAsk: true,
   reviewAskMin: 30,
+  openRemind: true,
+  openRemindHour: 20,
+  openRemindText: "היי {biz} 👋\nמחר ({openDay}) ב־{openTime} נפתח היומן לשבועיים הבאים: {from}–{to}.\n\nיש שינויים בשעות או ימי חופש? הוסיפו אותם עכשיו, לפני שהלקוחות מתחילים לקבוע:\n{site}#admin",
   reviewTexts: [
     "היי {first}, תודה שבאת היום ✂️ איך יצא? נשמח אם תשאיר ביקורת קצרה, זה לוקח 20 שניות 🙏\n{review}",
     "{first}, מקווים שאתה מרוצה מהתספורת 😎 נשמח לשמוע מה דעתך:\n{review}",
@@ -345,6 +348,31 @@ async function clientOptOut(jid, pnJid) {
 
 /* ---------- come-back messages: clients who have not come for N days and have nothing booked ---------- */
 let wbDay = "", wbCount = 0, wbLast = 0, wbBusy = false;
+/* evening before the booking window opens: remind the admins to add vacations / hour changes (admins only, never clients) */
+let orBusy = false;
+async function openRemindTick() {
+  if (orBusy || waState !== "open") return;
+  const st = botSet();
+  if (!st.openRemind || CFG.openMode !== "biweekly" || !CFG.openAnchor) return;
+  const a = parseYmd(CFG.openAnchor), tm = toMin(CFG.openTime || "08:00"); a.setHours(Math.floor(tm / 60), tm % 60, 0, 0);
+  const P = 14 * 864e5, next = new Date(a.getTime() + (Math.floor((Date.now() - a.getTime()) / P) + 1) * P);
+  const remindAt = new Date(next); remindAt.setDate(remindAt.getDate() - 1); remindAt.setHours(+st.openRemindHour || 20, 0, 0, 0);
+  const key = ymd(next), now = Date.now();
+  if (now < remindAt.getTime() || now >= next.getTime() || CFG.openRemindSent === key) return;
+  orBusy = true;
+  try {
+    let fresh = false;
+    await updateFile("config.json", readConfig, writeConfig, c => { if (c.openRemindSent === key) return null; fresh = true; c.openRemindSent = key; return c; }, "open-window reminder");
+    CFG = await readConfig();
+    if (!fresh) return;
+    const end = new Date(next); end.setDate(end.getDate() + 13);
+    const sh = d => d.getDate() + "." + (d.getMonth() + 1);
+    const text = fill(st.openRemindText, vars({}, { openDay: "יום " + WD[next.getDay()] + " " + sh(next), openTime: CFG.openTime || "08:00", from: sh(next), to: sh(end) }));
+    for (const ph of adminPhones()) { await sendWA(ph, text); await new Promise(r => setTimeout(r, 1500)); }
+    log("openRemind", "תזכורת פתיחת יומן נשלחה למנהלים (" + key + ")");
+  } catch (e) { log("error", "תזכורת פתיחת יומן: " + e.message); } finally { orBusy = false; }
+}
+
 /* test: 2 different come-back texts to each admin, requested by config.winbackTest */
 async function winbackTest() {
   const st = botSet(), texts = (st.winbackTexts && st.winbackTexts.length ? st.winbackTexts : DEFAULT_BOT.winbackTexts);
@@ -728,6 +756,7 @@ function startTunnel() {
   setInterval(reminderTick, 60e3);
   setInterval(() => gcalTick(false), 60e3);
   setInterval(winbackTick, 60e3);
+  setInterval(openRemindTick, 60e3);
   setInterval(reviewAskTick, 2 * 60e3);
   setInterval(inboxTick, 45e3); setTimeout(inboxTick, 5000); setTimeout(() => gcalTick(true), 8000);
   setInterval(() => { for (const [k, v] of OTP) if (v.exp < Date.now()) OTP.delete(k); }, 10 * 60e3);
