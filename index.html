@@ -294,6 +294,17 @@ body.adm .wa-fab{display:none}
 .stars button{background:none;border:0;font-size:38px;line-height:1;color:#3a3326;cursor:pointer;padding:2px;min-width:44px;min-height:44px}
 .stars button.on{color:var(--gold)}
 /* business dashboard */
+.motiv{border-color:var(--gold);background:linear-gradient(180deg,#1f190e,var(--surface))}
+.motiv .mt{font-size:18px;font-weight:700;margin:0 0 12px;line-height:1.45}
+.goal .gl{display:flex;justify-content:space-between;font-size:14px;color:var(--muted)}
+.goal .gl b{color:var(--gold-lt);font-variant-numeric:tabular-nums}
+.goal .gb{height:10px;border-radius:5px;background:#2a2316;overflow:hidden;margin:6px 0 10px}
+.goal .gb i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-dk),var(--gold-lt));border-radius:5px;transition:width .6s ease}
+.goal .ge{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.goal .ge input{width:90px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:6px 8px;min-height:38px}
+.goal .ge .btn{min-height:38px;padding:4px 12px;font-size:13px}
+.motiv .tip{margin:12px 0 0;padding-top:12px;border-top:1px dashed var(--line);font-size:15px}
+.motiv .tip b{display:block;color:var(--gold);margin-bottom:4px}
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:2px;text-align:center}
 .kpi small{color:var(--muted);font-size:13px}
@@ -1400,6 +1411,48 @@ function doneAppts(){
   return allAppts.filter(function(a){if(a.kind!=="appt"||a.status==="cancelled"||!a.date||!a.time)return false;
     var end=parseYmd(a.date).getTime()+(toMin(a.time)+(+a.dur||30))*60e3;return end<=now});
 }
+var TIPS=[
+  "שאל כל לקוח בסוף התספורת: ״לקבוע לך כבר לעוד שבועיים?״. לקוח שיוצא עם תור הבא חוזר כמעט תמיד.",
+  "צלם כל תספורת טובה לפני ואחרי. 3 תמונות בשבוע בסטורי מביאות לקוחות חדשים בלי לשלם על פרסום.",
+  "לקוח מרוצה? בקש ממנו ביקורת באתר עוד כשהוא בכיסא. ביקורות טובות מוכרות בשבילך.",
+  "שלח לחבר הכי טוב של לקוח קבוע הצעה: ״תביא חבר ושניכם מקבלים 10 ₪ הנחה״.",
+  "תזכור שמות. לקרוא ללקוח בשם שלו זה הדבר הכי פשוט שגורם לו להרגיש בבית.",
+  "בדוק ביומן אילו שעות הכי ריקות, ותן עליהן מבצע קטן רק לאותן שעות.",
+  "כלים נקיים ומסודרים מול הלקוח = אמון. זה מה שגורם לו לחזור.",
+  "שבוע לפני חג: פרסם ״נשארו מקומות אחרונים״. אנשים קובעים מהר כשיש מעט מקום.",
+  "לקוח שלא הגיע חודש? שלח לו הודעה אישית קצרה מהלשונית לקוחות. זה עובד יותר מכל פרסום.",
+  "תספורת ילד מביאה את האבא. תציע לאבא תור צמוד באותו יום.",
+  "שתה מים ותעשה הפסקה קטנה בין תורים. ספר רענן עובד טוב יותר ומחייך יותר.",
+  "סרטון של 10 שניות של פייד נקי שווה יותר מ-20 תמונות. נסה רילס אחד השבוע.",
+  "שאל לקוח קבוע מה הוא הכי אוהב אצלך, ותשתמש בזה במשפט הפרסום הבא שלך.",
+  "תעלה מחיר רק אחרי שהיומן מלא שבועיים ברצף. אז אתה יודע שהביקוש שם.",
+  "תן ללקוח מראה בסוף ושאל ״בדיוק כמו שרצית?״. רגע אחד שמונע לקוח לא מרוצה.",
+  "סדר זקן ב-30 ₪ הוא תוספת קלה. תציע אותו לכל מי שבא עם זקן.",
+  "לקוחות אוהבים ספר שזוכר. רשום הערה קטנה בכרטיס הלקוח: ״דירוג 1 בצדדים״.",
+  "יום שקט? זה הזמן לצלם, לנקות ולשלוח הודעות ללקוחות ותיקים.",
+  "חייך לכל מי שעובר ליד המספרה. ספרים מצליחים מוכרים קודם את עצמם.",
+  "כל ביקורת 5 כוכבים, תעשה ממנה סטורי עם תודה ללקוח. זה מראה לכולם שאתה טוב."
+];
+function motivHtml(){
+  var now=new Date(),today=ymd(now),nm=nowMin(),name=((pubCfg||cfg).biz||{}).name||"";
+  var list=appts.filter(function(a){return a.kind==="appt"&&a.date===today});
+  var done=list.filter(function(a){return !a.noShow&&toMin(a.time)+(+a.dur||30)<=nm}),left=list.length-done.length-list.filter(function(a){return a.noShow}).length;
+  var earned=done.reduce(function(t,a){return t+svcPrice(a)},0),planned=list.filter(function(a){return !a.noShow}).reduce(function(t,a){return t+svcPrice(a)},0);
+  var goal=+((pubCfg||cfg).goalDay)||600,pct=Math.min(100,Math.round(earned/goal*100));
+  var h=(cfg.hours||[])[now.getDay()],closed=!h||h.closed,afterClose=h&&!closed&&nm>=toMin(h.close);
+  var msg;
+  if(closed)msg="יום חופש 😎 נח, תטען כוחות. מחר ממשיכים חזק.";
+  else if(earned>=goal)msg="🔥 "+name+", עברת את היעד של היום! "+done.length+" תספורות, "+earned+" ₪. אלוף!";
+  else if(afterClose&&done.length)msg="עבודה מצוינת היום "+name+" 💪 "+done.length+" תספורות ו-"+earned+" ₪ בכיס. מגיע לך לנוח.";
+  else if(!done.length&&left>0)msg="בוקר טוב "+name+" ☀️ יש לך היום "+left+" תורים ("+planned+" ₪ צפוי). יאללה, יום מעולה!";
+  else if(!list.length)msg="היומן של היום עדיין ריק. זה הזמן לשלוח הודעה ללקוחות ותיקים או להעלות סטורי 💈";
+  else msg="יופי "+name+" 👊 כבר "+done.length+" תספורות היום. עוד "+Math.max(0,goal-earned)+" ₪ ליעד"+(left>0?", ונשארו לך "+left+" תורים.":".");
+  var start=new Date(now.getFullYear(),0,0),day=Math.floor((now-start)/864e5),tip=TIPS[day%TIPS.length];
+  return '<div class="card motiv"><p class="mt">'+esc(msg)+'</p>'+
+    '<div class="goal"><div class="gl"><span>יעד היום</span><b>'+earned+' / '+goal+' ₪</b></div><div class="gb"><i style="width:'+pct+'%"></i></div>'+
+    '<div class="ge"><label for="goalIn">שינוי יעד יומי</label><input id="goalIn" type="number" min="50" step="50" value="'+goal+'"><button class="btn" type="button" id="goalSave">שמור</button></div></div>'+
+    '<p class="tip"><b>💡 טיפ של היום</b>'+esc(tip)+'</p></div>';
+}
 function bizHtml(){
   if(!db)return '<div class="card"><p class="who">הנתונים נטענים…</p></div>';
   if(!bizMonth){var n=new Date();bizMonth=new Date(n.getFullYear(),n.getMonth(),1)}
@@ -1409,7 +1462,7 @@ function bizHtml(){
   var sum=function(l){return l.reduce(function(t,a){return t+svcPrice(a)},0)};
   var tD=paid.filter(function(a){return a.date===today}),tW=paid.filter(function(a){return a.date>=wks});
   var noShow=all.filter(function(a){return a.noShow&&a.date.slice(0,7)===mk}).length;
-  var h='<div class="kpis">'+
+  var h=motivHtml()+'<div class="kpis">'+
     '<div class="kpi"><small>היום</small><b>'+sum(tD)+' ₪</b><span>'+tD.length+' תספורות</span></div>'+
     '<div class="kpi"><small>השבוע</small><b>'+sum(tW)+' ₪</b><span>'+tW.length+' תספורות</span></div>'+
     '<div class="kpi"><small>'+MO[bizMonth.getMonth()]+'</small><b>'+sum(mo)+' ₪</b><span>'+mo.length+' תספורות'+(mo.length?' · ממוצע '+Math.round(sum(mo)/mo.length)+' ₪':'')+'</span></div>'+
@@ -1564,6 +1617,8 @@ $("tabBody").addEventListener("click",async function(e){
     try{await botAdmin("/admin/send",{phone:t.dataset.csend,text:tx});sm.textContent="✓ ההודעה נשלחה";sm.className="msg ok";$("cliSend").value="";editingNote=false}
     catch(e){sm.textContent="השליחה נכשלה. בדוק שהבוט מחובר (לשונית וואטסאפ).";sm.className="msg bad"}
     t.disabled=false;t.textContent="שלח בוואטסאפ";return}
+  if(t.id==="goalSave"){var gv=Math.max(50,+$("goalIn").value||600);t.disabled=true;
+    try{await saveConfig(function(l){l.goalDay=gv;return l},"daily goal");draft.goalDay=gv;applyConfig(clone(pubCfg));renderTab();setStatus("✓ היעד נשמר")}catch(_){setStatus("השמירה נכשלה","dirty");t.disabled=false}return}
   if(t.dataset.bm){bizMonth=new Date(bizMonth.getFullYear(),bizMonth.getMonth()+(+t.dataset.bm),1);renderTab();return}
   if(t.dataset.noshow){var ns=store[t.dataset.noshow];if(!ns)return;var cp=clone(ns);cp.noShow=!cp.noShow;t.disabled=true;try{await db.collection("data/users/"+uid).doc(t.dataset.noshow).set(cp)}catch(_){setStatus("השמירה נכשלה","dirty")}return}
   if(t.dataset.cli){cliOpen=cliOpen===t.dataset.cli?null:t.dataset.cli;editingNote=false;renderTab();return}
