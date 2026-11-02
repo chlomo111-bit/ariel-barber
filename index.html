@@ -1138,7 +1138,7 @@ function renderTab(){
   if(curTab==="gen")waCheck();
   if(curTab==="cal"){$("pasteBox").value=pasteVal;$("histPhone").value=histVal;renderHist()}
 }
-var BOT_DEF={otp:"הקוד שלך לקביעת תור אצל {biz}: *{code}*\nהקוד בתוקף ל-10 דקות.",confirm:"היי {name}, התור שלך נקבע ✅\n{service}\n{date} בשעה {time}\n📍 {area}\n\nהוספה ליומן: {cal}\n\nלביטול התור השיבו *ביטול* להודעה הזו.",cancelOk:"התור שלך ב{date} בשעה {time} בוטל ✅\nלקביעת תור חדש: {site}",adminCancel:"❌ תור בוטל{by}\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancelMinBefore:60,reminder:"היי {name}, תזכורת: התור שלך אצל {biz} היום בשעה {time} ✂️\n📍 {area}\nנתראה!",adminNew:"📅 תור חדש נקבע\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancel:"היי {name}, התור שלך ב{date} בשעה {time} בוטל. לקביעת תור חדש: {site}",autoReply:"שלום! זה מספר אוטומטי לאישורי תורים של {biz} 💈\nלקביעת תור: {site}\nלשאלות כתבו ל{biz}: {adminPhone}",reminderMin:60,notifyAdmin:true,sendConfirm:true,sendReminder:true,maxFuturePerPhone:2};
+var BOT_DEF={otp:"הקוד שלך לקביעת תור אצל {biz}: *{code}*\nהקוד בתוקף ל-10 דקות.",confirm:"היי {name}, התור שלך נקבע ✅\n{service}\n{date} בשעה {time}\n📍 {area}\n\nהוספה ליומן: {cal}\n\nלביטול התור השיבו *ביטול* להודעה הזו.",cancelOk:"התור שלך ב{date} בשעה {time} בוטל ✅\nלקביעת תור חדש: {site}",adminCancel:"❌ תור בוטל{by}\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancelMinBefore:60,winback:true,winbackDays:14,winbackMaxPerDay:10,reminder:"היי {name}, תזכורת: התור שלך אצל {biz} היום בשעה {time} ✂️\n📍 {area}\nנתראה!",adminNew:"📅 תור חדש נקבע\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancel:"היי {name}, התור שלך ב{date} בשעה {time} בוטל. לקביעת תור חדש: {site}",autoReply:"שלום! זה מספר אוטומטי לאישורי תורים של {biz} 💈\nלקביעת תור: {site}\nלשאלות כתבו ל{biz}: {adminPhone}",reminderMin:60,notifyAdmin:true,sendConfirm:true,sendReminder:true,maxFuturePerPhone:2};
 var botStat=null,botKey=null,botPoll=null,qrLib=null;
 function botSettings(){draft.bot=Object.assign({},BOT_DEF,draft.bot||{});return draft.bot}
 async function getBotKey(){if(botKey)return botKey;var h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("ariel-bot:"+b64e(dekRaw)));botKey=Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,"0")}).join("");return botKey}
@@ -1175,6 +1175,9 @@ function waHtml(){
     '<label class="row"><input type="checkbox" data-b="sendReminder" '+(b.sendReminder?'checked':'')+'> תזכורת ללקוח לפני התור</label>'+
     '<label class="row"><input type="checkbox" data-b="notifyAdmin" '+(b.notifyAdmin?'checked':'')+'> הודעה למנהלים על כל תור חדש</label>'+
     '<div class="field" style="margin-top:10px"><label for="admPh">מספרי המנהלים שמקבלים הודעות (מופרדים בפסיק)</label><input id="admPh" dir="ltr" data-ap="1" value="'+esc((draft.adminPhones&&draft.adminPhones.length?draft.adminPhones:[draft.wa]).join(", "))+'"></div>'+
+    '<label class="row"><input type="checkbox" data-b="winback" '+(b.winback?'checked':'')+'> הודעת ״הגיע הזמן לתספורת״ ללקוחות שלא הגיעו ולא קבעו תור (רביעי–חמישי, 11:00–18:00)</label>'+
+    '<div class="grid2"><div class="field"><label for="bWbD">אחרי כמה ימים בלי תספורת</label><input id="bWbD" type="number" min="7" max="90" data-b="winbackDays" data-num="1" value="'+esc(b.winbackDays)+'"></div>'+
+    '<div class="field"><label for="bWbM">מקסימום הודעות כאלה ביום</label><input id="bWbM" type="number" min="1" max="40" data-b="winbackMaxPerDay" data-num="1" value="'+esc(b.winbackMaxPerDay)+'"></div></div>'+
     '<div class="grid2" style="margin-top:10px"><div class="field"><label for="bRem">תזכורת כמה דקות לפני</label><input id="bRem" type="number" min="15" step="15" data-b="reminderMin" data-num="1" value="'+esc(b.reminderMin)+'"></div>'+
     '<div class="field"><label for="bCan">הלקוח יכול לבטל עד כמה דקות לפני</label><input id="bCan" type="number" min="0" step="15" data-b="cancelMinBefore" data-num="1" value="'+esc(b.cancelMinBefore)+'"></div>'+
     '<div class="field"><label for="bMax">מקסימום תורים קרובים למספר</label><input id="bMax" type="number" min="1" max="10" data-b="maxFuturePerPhone" data-num="1" value="'+esc(b.maxFuturePerPhone)+'"></div></div></div>';
@@ -1209,7 +1212,7 @@ function clientsList(){
     if(a.status==="cancelled"){c.cancelled++;return}
     if(a.date<today){c.visits++;if(a.date>c.last)c.last=a.date}else{c.upcoming++;if(!c.next||a.date<c.next)c.next=a.date}});
   Object.keys(cmeta).forEach(function(k){if(!m[k])m[k]={phone:k,name:cmeta[k].name||"",visits:0,upcoming:0,last:"",next:"",list:[]}});
-  return Object.keys(m).map(function(k){var c=m[k],x=cmeta[k]||{};c.note=x.note||"";c.vip=!!x.vip;if(x.name)c.name=x.name;return c});
+  return Object.keys(m).map(function(k){var c=m[k],x=cmeta[k]||{};c.note=x.note||"";c.vip=!!x.vip;c.optOut=!!x.optOut;c.winbackAt=x.winbackAt||0;if(x.name)c.name=x.name;return c});
 }
 function infoText(){
   var c=pubCfg||cfg,ic={"תספורת גבר":"✂️","תספורת ילד":"👦","תספורת + סידור זקן":"🧔","סידור זקן":"🪒"},WDL=["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
@@ -1234,7 +1237,7 @@ function cliHtml(){
     var open=cliOpen===c.phone;
     h+='<div class="cli'+(open?' open':'')+'"><button class="clirow" type="button" data-cli="'+c.phone+'" aria-expanded="'+open+'">'+
       '<span class="grow"><b>'+esc(c.name||"ללא שם")+'</b>'+(c.vip?' <span class="badge">לקוח קבוע</span>':'')+'<span class="who" dir="ltr" style="display:block;text-align:start">'+esc(c.phone)+'</span></span>'+
-      '<span class="cst"><b>'+c.visits+'</b><small>ביקורים</small></span>'+
+      (c.optOut?'<span class="badge block">הוסר</span>':'')+'<span class="cst"><b>'+c.visits+'</b><small>ביקורים</small></span>'+
       '<span class="cst"><b>'+(c.next?esc(dateShort(c.next)):(c.last?esc(dateShort(c.last)):'—'))+'</b><small>'+(c.next?'תור הבא':'ביקור אחרון')+'</small></span></button>';
     if(open){
       var hist=c.list.slice().sort(function(a,b){return (b.date+b.time)<(a.date+a.time)?-1:1}),today=ymd(new Date());
@@ -1248,6 +1251,7 @@ function cliHtml(){
         '<button class="btn" type="button" data-csave="'+c.phone+'">שמור פרטי לקוח</button><div class="msg" id="cliMsg"></div>'+
         '<h3 style="margin-top:14px">הודעה מהבוט</h3><div class="field"><label for="cliSend">טקסט ההודעה</label><textarea id="cliSend" data-cname="'+c.phone+'" rows="6" style="background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;width:100%"></textarea></div>'+
         '<div class="clia"><button class="btn" type="button" id="cliInfo">מלא מידע על המספרה</button><button class="btn primary" type="button" data-csend="'+c.phone+'">שלח בוואטסאפ</button></div><div class="msg" id="cliSendMsg"></div>'+
+        (c.winbackAt?'<p class="who">הודעת ״הגיע הזמן לתספורת״ נשלחה: '+esc(dateShort(ymd(new Date(c.winbackAt))))+'</p>':'')+(c.optOut?'<p class="who">הלקוח ביקש לא לקבל הודעות</p>':'')+
         '<h3 style="margin-top:14px">היסטוריה ('+hist.length+')</h3>';
       hist.forEach(function(a){h+='<div class="row"><div class="grow"><div class="when">'+esc(dateShort(a.date))+' · '+esc(a.time)+(a.status==="cancelled"?' <span class="badge block" style="border-color:var(--err);color:var(--err)">בוטל</span>':a.date<today?' <span class="badge block">עבר</span>':' <span class="badge">קרוב</span>')+'</div>'+(a.note?'<div class="who">'+esc(a.note)+'</div>':'')+'</div></div>'});
       if(!hist.length)h+='<p class="who">אין תורים ביומן.</p>';

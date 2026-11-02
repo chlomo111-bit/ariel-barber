@@ -157,7 +157,24 @@ const DEFAULT_BOT = {
   notifyAdmin: true,
   sendConfirm: true,
   sendReminder: true,
-  maxFuturePerPhone: 2
+  maxFuturePerPhone: 2,
+  winback: true,
+  winbackDays: 14,
+  winbackMaxPerDay: 10,
+  winbackDaysOfWeek: [3, 4],
+  winbackTexts: [
+    "היי {first} 👋 סוף השבוע מתקרב, זה הזמן לסדר את השיער ✂️\nקובעים תור כאן: {site}",
+    "{first}, עברו כבר כמה שבועות מהתספורת האחרונה 😉 מתי מסדרים?\n{site}",
+    "היי {first}! השבוע עוד יש מקומות פנויים אצל {biz} 💈\nתפוס תור: {site}",
+    "אהלן {first} ✂️ מגיע לך להיראות חד לסופ״ש.\nלקביעת תור: {site}",
+    "{first}, הפייד מתחיל לגדול? 😄 בוא נסדר אותו.\nתור בקליק: {site}",
+    "היי {first}, מזמן לא ראינו אותך במספרה 🙂 מחכים לך!\n{site}",
+    "סופ״ש בפתח 🎉 {first}, רוצה להגיע מסודר? יש תורים פנויים:\n{site}",
+    "{first}, תזכורת קטנה מ{biz}: הגיע הזמן לתספורת ✂️\n{site}",
+    "היי {first} 💈 לפני שהתורים לסוף השבוע נגמרים, קבע לך מקום:\n{site}",
+    "אהלן {first}! שבועיים בלי תספורת זה הרבה 😅 קובעים עכשיו:\n{site}"
+  ],
+  winbackFooter: "\n\nלהסרה מההודעות השיבו *הסר*"
 };
 const adminPhones = () => { const l = (Array.isArray(CFG.adminPhones) && CFG.adminPhones.length ? CFG.adminPhones : [CFG.wa]).map(pLocal).filter(phoneOk); return [...new Set(l)]; };
 const SITE_URL = "https://" + GH.owner + ".github.io/" + GH.repo + "/";
@@ -244,6 +261,7 @@ async function startWA() {
         const pnJid = jid.endsWith("@s.whatsapp.net") ? jid : (m.key.senderPn || m.key.remoteJidAlt || m.key.participantPn || "");
         const text = (m.message.conversation || (m.message.extendedTextMessage && m.message.extendedTextMessage.text) || "").trim();
         if (/^(ביטול|לבטל|בטל|בטלו|אני רוצה לבטל|cancel)(?=$|[\s.!?,])/i.test(text)) { await clientCancel(jid, pnJid); continue; }
+        if (/^(הסר|הסירו|להסיר|הסרה|stop|תפסיקו|תפסיק)(?=$|[\s.!?,])/i.test(text)) { await clientOptOut(jid, pnJid); continue; }
         if (!pnJid && !jid.endsWith("@lid")) continue;
         const last = repliedAt.get(jid) || 0;
         if (Date.now() - last < 24 * 3600e3) continue; // answer each person at most once a day
@@ -253,6 +271,63 @@ async function startWA() {
     }
   });
 }
+/* client replies "הסר": no more come-back messages */
+async function clientOptOut(jid, pnJid) {
+  const phone = pnJid ? "0" + pnJid.split("@")[0].replace(/^972/, "") : "";
+  if (!phoneOk(phone)) return;
+  try {
+    await changeStore(d => { d["c" + phone] = Object.assign({ kind: "client", phone }, d["c" + phone] || {}, { optOut: true, optOutAt: Date.now() }); return d; }, "client opted out");
+    await sock.sendMessage(jid, { text: "הוסרת מרשימת ההודעות ✅ תמיד אפשר לקבוע תור כאן: " + SITE_URL }).catch(() => {});
+    log("winback", phone + " ביקש להסיר מההודעות");
+  } catch (e) { log("error", "הסרה נכשלה: " + e.message); }
+}
+
+/* ---------- come-back messages: clients who have not come for N days and have nothing booked ---------- */
+let wbDay = "", wbCount = 0, wbLast = 0, wbBusy = false;
+async function winbackTick() {
+  if (wbBusy || waState !== "open") return;
+  const now = new Date(), st = botSet();
+  if (!st.winback) return;
+  if (!(st.winbackDaysOfWeek || [3, 4]).includes(now.getDay()) || now.getHours() < 11 || now.getHours() >= 18) return;
+  const today = ymd(now);
+  if (wbDay !== today) { wbDay = today; wbCount = 0; }
+  if (wbCount >= (+st.winbackMaxPerDay || 10)) return;
+  if (Date.now() - wbLast < (3 + Math.random() * 4) * 60e3) return; // space messages out
+  wbBusy = true;
+  try {
+    CFG = await readConfig();
+    const docs = await readStore(), days = (+st.winbackDays || 14) * 864e5, nowMs = Date.now(), people = {};
+    for (const a of Object.values(docs)) {
+      if (!a || a.kind !== "appt" || !a.phone) continue;
+      const ph = pLocal(a.phone); if (!phoneOk(ph)) continue;
+      const p = people[ph] || (people[ph] = { phone: ph, name: "", lastVisit: 0, future: false, lastActivity: 0 });
+      if (a.name) p.name = a.name;
+      const t = parseYmd(a.date).getTime() + toMin(a.time) * 60e3;
+      p.lastActivity = Math.max(p.lastActivity, a.created || 0, a.cancelledAt || 0);
+      if (live(a)) { if (t > nowMs) p.future = true; else p.lastVisit = Math.max(p.lastVisit, t); }
+    }
+    const pick = Object.values(people).filter(p => {
+      const meta = docs["c" + p.phone] || {};
+      if (meta.optOut || p.future) return false;
+      const ref = p.lastVisit || p.lastActivity;
+      if (!ref || nowMs - ref < days || nowMs - p.lastActivity < days) return false; // came or contacted us recently
+      if (meta.lastContact && nowMs - meta.lastContact < days) return false;
+      if (meta.winbackAt && (meta.winbackAt > ref || nowMs - meta.winbackAt < 30 * 864e5)) return false; // one message per absence, max once a month
+      return true;
+    }).sort((x, y) => (x.lastVisit || x.lastActivity) - (y.lastVisit || y.lastActivity))[0];
+    if (!pick) return;
+    const texts = (st.winbackTexts && st.winbackTexts.length ? st.winbackTexts : DEFAULT_BOT.winbackTexts);
+    const name = ((docs["c" + pick.phone] || {}).name || pick.name || "").trim();
+    const msg = fill(texts[randomInt(0, texts.length)], vars({ name }, { first: name.split(" ")[0] || "" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "") + (st.winbackFooter || "");
+    try { await sendWA(pick.phone, msg); }
+    catch (e) { if (e.code !== "nowa") throw e; }
+    wbCount++; wbLast = Date.now();
+    await changeStore(d => { d["c" + pick.phone] = Object.assign({ kind: "client", phone: pick.phone, name }, d["c" + pick.phone] || {}, { winbackAt: Date.now() }); return d; }, "come-back message");
+    log("winback", "הודעת חזרה נשלחה ל-" + (name || pick.phone));
+  } catch (e) { log("error", "הודעות חזרה: " + e.message); }
+  finally { wbBusy = false; }
+}
+
 /* client replies "ביטול": cancel his next appointment, tell him and the admins */
 async function clientCancel(jid, pnJid) {
   const phone = pnJid ? "0" + pnJid.split("@")[0].replace(/^972/, "") : "";
@@ -550,6 +625,7 @@ function startTunnel() {
   startWA();
   setInterval(reminderTick, 60e3);
   setInterval(() => gcalTick(false), 60e3);
+  setInterval(winbackTick, 60e3);
   setInterval(inboxTick, 45e3); setTimeout(inboxTick, 5000); setTimeout(() => gcalTick(true), 8000);
   setInterval(() => { for (const [k, v] of OTP) if (v.exp < Date.now()) OTP.delete(k); }, 10 * 60e3);
 })();
