@@ -293,6 +293,17 @@ body.adm .wa-fab{display:none}
 .stars{display:flex;justify-content:center;gap:6px;margin-bottom:12px;direction:ltr}
 .stars button{background:none;border:0;font-size:38px;line-height:1;color:#3a3326;cursor:pointer;padding:2px;min-width:44px;min-height:44px}
 .stars button.on{color:var(--gold)}
+/* business dashboard */
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:2px;text-align:center}
+.kpi small{color:var(--muted);font-size:13px}
+.kpi b{font-size:24px;font-weight:900;color:var(--gold-lt);font-variant-numeric:tabular-nums}
+.kpi span{color:var(--muted);font-size:12px}
+.bars{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;align-items:end;height:150px;padding-top:18px}
+.bar{position:relative;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-width:0}
+.bar i{display:block;width:100%;background:linear-gradient(180deg,var(--gold-lt),var(--gold-dk));border-radius:4px 4px 0 0;min-height:0}
+.bar em{order:-1;font-style:normal;font-size:9px;color:var(--muted);font-variant-numeric:tabular-nums;margin-bottom:2px;line-height:1}
+.bar span{font-size:10px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
 /* admin clients */
 .cli{border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--bg)}
 .cli.open{border-color:var(--gold)}
@@ -515,6 +526,7 @@ body.adm .wa-fab{display:none}
   <div class="wrap">
     <div class="admhead"><h2>ניהול יומן</h2><div style="display:flex;gap:6px"><button class="btn" id="admLogout" type="button">יציאה</button><button class="btn" id="admClose" type="button">לדף הלקוחות</button></div></div>
     <div class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-t="biz" type="button">עסק</button>
       <button role="tab" data-t="cal" type="button">יומן</button>
       <button role="tab" data-t="cli" type="button">לקוחות</button>
       <button role="tab" data-t="wa" type="button">וואטסאפ</button>
@@ -1168,7 +1180,7 @@ async function connectDb(){
     allAppts=all.filter(function(x){return x.date&&x.time});
     appts=allAppts.filter(function(x){return x.status!=="cancelled"});
     cmeta={};all.forEach(function(x){if(x.kind==="client"&&x.phone)cmeta[x.phone]=x});
-    if((curTab==="cal"||curTab==="cli")&&!$("admin").hidden&&!editingNote)renderTab();
+    if((curTab==="cal"||curTab==="cli"||curTab==="biz")&&!$("admin").hidden&&!editingNote)renderTab();
   },function(){});
 }
 function openAdmin(tab){
@@ -1203,6 +1215,7 @@ function renderTab(){
       '<div class="field"><label for="aTime">שעה</label><input id="aTime" type="time" value="12:00"></div>'+
       '<div class="field"><label for="aName">שם</label><input id="aName" maxlength="40"></div>'+
       '<div class="field"><label for="aPhone">טלפון</label><input id="aPhone" type="tel" dir="ltr" maxlength="17"></div></div>'+
+      '<div class="field"><label for="aSvc">שירות</label><select id="aSvc"><option value="">—</option>'+(draft.services||[]).map(function(sv){return '<option value="'+esc(sv.id)+'">'+esc(sv.name)+' · '+esc(sv.price)+' ₪</option>'}).join("")+'</select></div>'+
       '<div class="field"><label for="aNote">הערה</label><input id="aNote" maxlength="120"></div>'+
       '<button class="btn primary" style="width:100%" id="aAdd" type="button">הוסף ליומן</button><div class="msg" id="aMsg"></div></div>';
     h+='<div class="card"><h3>תורים קרובים</h3>';
@@ -1218,6 +1231,7 @@ function renderTab(){
   }
   else if(curTab==="cli"){h+=cliHtml()}
   else if(curTab==="wa"){h+=waHtml()}
+  else if(curTab==="biz"){h+=bizHtml()}
   else if(curTab==="hours"){
     h+='<div class="card"><h3>שעות פתיחה</h3>';
     draft.hours.forEach(function(x,i){
@@ -1372,6 +1386,49 @@ function infoText(){
   lines.push("📍 "+c.biz.area,"","לקביעת תור:",(c.siteUrl||"https://ariel.barbershops.company/"));
   return lines.join("\n");
 }
+/* ---- business dashboard: finished appointments with the amount paid ---- */
+var bizMonth=null;
+function svcPrice(a){
+  if(a.paid!=null&&a.paid!=="")return +a.paid||0;
+  if(a.price!=null)return +a.price||0;
+  var n=String(a.note||""),best=null;(draft.services||cfg.services||[]).forEach(function(sv){if(n.indexOf(sv.name)===0&&(!best||sv.name.length>best.name.length))best=sv});
+  return best?+best.price||0:0;
+}
+function doneAppts(){
+  var now=Date.now();
+  return allAppts.filter(function(a){if(a.kind!=="appt"||a.status==="cancelled"||!a.date||!a.time)return false;
+    var end=parseYmd(a.date).getTime()+(toMin(a.time)+(+a.dur||30))*60e3;return end<=now});
+}
+function bizHtml(){
+  if(!db)return '<div class="card"><p class="who">הנתונים נטענים…</p></div>';
+  if(!bizMonth){var n=new Date();bizMonth=new Date(n.getFullYear(),n.getMonth(),1)}
+  var all=doneAppts(),paid=all.filter(function(a){return !a.noShow}),today=ymd(new Date());
+  var wk=new Date();wk.setHours(0,0,0,0);wk.setDate(wk.getDate()-wk.getDay());var wks=ymd(wk);
+  var mk=ymd(bizMonth).slice(0,7),mo=paid.filter(function(a){return a.date.slice(0,7)===mk});
+  var sum=function(l){return l.reduce(function(t,a){return t+svcPrice(a)},0)};
+  var tD=paid.filter(function(a){return a.date===today}),tW=paid.filter(function(a){return a.date>=wks});
+  var noShow=all.filter(function(a){return a.noShow&&a.date.slice(0,7)===mk}).length;
+  var h='<div class="kpis">'+
+    '<div class="kpi"><small>היום</small><b>'+sum(tD)+' ₪</b><span>'+tD.length+' תספורות</span></div>'+
+    '<div class="kpi"><small>השבוע</small><b>'+sum(tW)+' ₪</b><span>'+tW.length+' תספורות</span></div>'+
+    '<div class="kpi"><small>'+MO[bizMonth.getMonth()]+'</small><b>'+sum(mo)+' ₪</b><span>'+mo.length+' תספורות'+(mo.length?' · ממוצע '+Math.round(sum(mo)/mo.length)+' ₪':'')+'</span></div>'+
+    '<div class="kpi"><small>לא הגיעו</small><b>'+noShow+'</b><span>ב'+MO[bizMonth.getMonth()]+'</span></div></div>';
+  /* last 14 days chart */
+  var days=[],max=0;for(var i=13;i>=0;i--){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-i);var ds=ymd(d),v=sum(paid.filter(function(a){return a.date===ds}));days.push({d:d,v:v});if(v>max)max=v}
+  h+='<div class="card"><h3>הכנסות ב־14 הימים האחרונים</h3><div class="bars">'+days.map(function(x){var pct=max?Math.round(x.v/max*100):0;
+    return '<div class="bar" title="'+x.d.getDate()+'.'+(x.d.getMonth()+1)+': '+x.v+' ₪"><i style="height:'+Math.max(pct,x.v?4:0)+'%"></i><em>'+(x.v?x.v:'')+'</em><span>'+x.d.getDate()+'</span></div>'}).join("")+'</div></div>';
+  /* month list */
+  h+='<div class="card"><div class="calhead"><button class="btn" type="button" data-bm="-1">› הקודם</button><h3>תספורות ב'+MO[bizMonth.getMonth()]+' '+bizMonth.getFullYear()+'</h3><button class="btn" type="button" data-bm="1">הבא ‹</button></div>';
+  var rows=all.filter(function(a){return a.date.slice(0,7)===mk}).sort(function(a,b){return (b.date+b.time)<(a.date+a.time)?-1:1});
+  if(!rows.length)h+='<p class="who">אין תספורות שהסתיימו בחודש הזה.</p>';
+  rows.forEach(function(a){
+    h+='<div class="row'+(a.noShow?'" style="opacity:.55':'')+'"><div class="grow"><div class="when">'+esc(dateShort(a.date))+' · '+esc(a.time)+' · '+esc(a.name||"לקוח")+'</div><div class="who">'+esc(a.note||"")+(a.noShow?' · לא הגיע':'')+'</div></div>'+
+      '<label class="sr" for="pd_'+esc(a._id)+'">סכום ששולם</label><input id="pd_'+esc(a._id)+'" type="number" min="0" data-paid="'+esc(a._id)+'" value="'+svcPrice(a)+'" style="width:80px" '+(a.noShow?'disabled':'')+'> ₪'+
+      '<button class="btn" type="button" data-noshow="'+esc(a._id)+'" style="min-height:36px;padding:4px 10px;font-size:13px">'+(a.noShow?'הגיע':'לא הגיע')+'</button></div>';
+  });
+  h+='<p class="who">תור נכנס לכאן אוטומטית כשהוא מסתיים. אפשר לשנות את הסכום ששולם (נשמר כשיוצאים מהשדה).</p></div>';
+  return h;
+}
 function cliHtml(){
   if(!db)return '<div class="card"><p class="who">רשימת הלקוחות נטענת… אם היא לא מופיעה, היומן הפרטי לא זמין בתצוגה הזו.</p></div>';
   var all=clientsList(),q=cliQ.trim().toLowerCase(),qd=q.replace(/\D/g,"");
@@ -1480,6 +1537,7 @@ function waCheck(){var el=$("gWa"),m=$("gWaMsg");if(!el)return;var ok=phoneOk(el
 $("tabBody").addEventListener("input",function(e){
   var t=e.target,d=t.dataset;
   if(t.id==="pasteBox"){pasteVal=t.value;return}
+  if(t.dataset.paid){editingNote=true;return}
   if(t.dataset.ap){draft.adminPhones=t.value.split(/[,;\s]+/).map(function(x){return x.trim()}).filter(function(x){return x});markDirty();return}
   if(t.dataset.b){var bs=botSettings(),k=t.dataset.b;bs[k]=t.type==="checkbox"?t.checked:(t.dataset.num?(+t.value||0):t.value);markDirty();return}
   if(t.id==="cliSearch"){cliQ=t.value;var pos=t.selectionStart;renderTab();var n=$("cliSearch");if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}return}
@@ -1489,6 +1547,11 @@ $("tabBody").addEventListener("input",function(e){
   else if(d.s!=null){var s=draft.services[+d.s];s[d.k]=d.k==="name"?t.value:Math.max(0,+t.value||0);markDirty()}
   else if(d.x!=null){var a=draft.addons[+d.x];a[d.k]=d.k==="name"?t.value:Math.max(0,+t.value||0);markDirty()}
   else if(d.g){var path=d.g.split("."),o=draft;for(var i=0;i<path.length-1;i++)o=o[path[i]];o[path[path.length-1]]=d.num?(+t.value||0):t.value;markDirty();if(d.g==="wa")waCheck()}
+});
+$("tabBody").addEventListener("change",async function(e){
+  var t=e.target;if(!t.dataset||!t.dataset.paid)return;
+  var a=store[t.dataset.paid];if(!a)return;var cp=clone(a);cp.paid=Math.max(0,+t.value||0);editingNote=false;
+  try{await db.collection("data/users/"+uid).doc(t.dataset.paid).set(cp);setStatus("✓ הסכום נשמר")}catch(_){setStatus("השמירה נכשלה","dirty")}
 });
 $("tabBody").addEventListener("click",async function(e){
   var t=e.target.closest("button");if(!t)return;
@@ -1500,6 +1563,8 @@ $("tabBody").addEventListener("click",async function(e){
     try{await botAdmin("/admin/send",{phone:t.dataset.csend,text:tx});sm.textContent="✓ ההודעה נשלחה";sm.className="msg ok";$("cliSend").value="";editingNote=false}
     catch(e){sm.textContent="השליחה נכשלה. בדוק שהבוט מחובר (לשונית וואטסאפ).";sm.className="msg bad"}
     t.disabled=false;t.textContent="שלח בוואטסאפ";return}
+  if(t.dataset.bm){bizMonth=new Date(bizMonth.getFullYear(),bizMonth.getMonth()+(+t.dataset.bm),1);renderTab();return}
+  if(t.dataset.noshow){var ns=store[t.dataset.noshow];if(!ns)return;var cp=clone(ns);cp.noShow=!cp.noShow;t.disabled=true;try{await db.collection("data/users/"+uid).doc(t.dataset.noshow).set(cp)}catch(_){setStatus("השמירה נכשלה","dirty")}return}
   if(t.dataset.cli){cliOpen=cliOpen===t.dataset.cli?null:t.dataset.cli;editingNote=false;renderTab();return}
   if(t.dataset.newfor){var c=clientsList().filter(function(x){return x.phone===t.dataset.newfor})[0];curTab="cal";ssSet(curTab);renderTabs();renderTab();
     $("aKind").value="appt";$("aName").value=c?c.name:"";$("aPhone").value=t.dataset.newfor;$("aDate").focus();$("aAdd").scrollIntoView({behavior:reduce?"auto":"smooth",block:"center"});return}
@@ -1546,6 +1611,8 @@ $("tabBody").addEventListener("click",async function(e){
     var m=$("aMsg");
     if(!db){m.textContent="היומן הפרטי לא זמין כרגע.";m.className="msg bad";return}
     var rec={kind:$("aKind").value,date:$("aDate").value,time:$("aTime").value,dur:Math.max(5,+$("aDur").value||30),name:$("aName").value.trim(),phone:$("aPhone").value.trim(),note:$("aNote").value.trim(),created:Date.now()};
+    var asv=(draft.services||[]).filter(function(x){return x.id===$("aSvc").value})[0];
+    if(asv&&rec.kind==="appt"){rec.price=+asv.price||0;rec.note=asv.name+(rec.note?" · "+rec.note:"")}
     if(!rec.date||!rec.time){m.textContent="צריך תאריך ושעה.";m.className="msg bad";return}
     t.disabled=true;
     try{await db.collection("data/users/"+uid).doc("a"+Date.now().toString(36)).set(rec);setStatus("✓ נשמר");pasteVal="";
