@@ -665,7 +665,8 @@ function renderBiz(){
   $("askLink").href="https://wa.me/"+waIntl(cfg.wa)+"?text="+encodeURIComponent("היי "+b.name+", יש לי שאלה:");
   $("waFab").href="https://wa.me/"+waIntl(cfg.wa)+"?text="+encodeURIComponent("היי "+b.name+", ");$("waFab").setAttribute("aria-label","שלחו הודעה בוואטסאפ ל"+b.name);
   var td=ymd(new Date()),h=cfg.hours[new Date().getDay()];
-  $("todayLine").innerHTML=(!h||h.closed||onVacation(td))?"היום סגור":"פתוח היום <b>"+esc(h.open)+"–"+esc(h.close)+"</b>";
+  var nowM=new Date().getHours()*60+new Date().getMinutes();
+  $("todayLine").innerHTML=(!h||h.closed||onVacation(td))?"היום סגור":nowM>=toMin(h.close)?"סגור כעת":"פתוח היום <b>"+esc(h.open)+"–"+esc(h.close)+"</b>";
   var oi=openInfo();if(oi)$("todayLine").innerHTML+="<br>היומן פתוח עד "+dateShort(oi.end)+" · הבא נפתח בשישי "+oi.next.getDate()+"."+(oi.next.getMonth()+1)+" ב־"+esc(cfg.openTime||"08:00");
 }
 
