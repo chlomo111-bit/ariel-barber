@@ -490,8 +490,6 @@ const server = http.createServer(async (req, res) => {
       const name = String(b.name || "").trim().replace(/\s+/g, " ").slice(0, 30), text = String(b.text || "").trim().slice(0, 300), stars = Math.max(1, Math.min(5, Math.round(+b.stars || 0)));
       if (!name || !stars) return send(res, 400, { error: "bad" });
       const docs = await readStore();
-      const isClient = Object.values(docs).some(a => a && a.kind === "appt" && live(a) && a.phone && pLocal(a.phone) === phone);
-      if (!isClient) return send(res, 403, { error: "notclient" });
       OTP.delete(phone);
       const meta = docs["c" + phone] || {}, id = meta.reviewId || ("r" + Date.now().toString(36) + randomInt(100, 999));
       const rv = { id, name, stars, text, date: ymd(new Date()) };
