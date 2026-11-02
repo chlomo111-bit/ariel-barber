@@ -1392,7 +1392,8 @@ function svcPrice(a){
   if(a.paid!=null&&a.paid!=="")return +a.paid||0;
   if(a.price!=null)return +a.price||0;
   var n=String(a.note||""),best=null;(draft.services||cfg.services||[]).forEach(function(sv){if(n.indexOf(sv.name)===0&&(!best||sv.name.length>best.name.length))best=sv});
-  return best?+best.price||0:0;
+  if(best)return +best.price||0;
+  var def=(draft.services||cfg.services||[])[0];return def?+def.price||0:0; /* no service noted: a regular haircut */
 }
 function doneAppts(){
   var now=Date.now();
