@@ -348,6 +348,10 @@ body.adm .wa-fab{display:none}
   *,*::before,*::after{animation:none!important;transition:none!important}
   .check circle,.check path{stroke-dashoffset:0}
 }
+.bs-sign,.bs-line{color:var(--muted);opacity:.55;font-size:11.5px;text-decoration:none;transition:opacity .2s}
+.bs-sign:hover,.bs-line:hover,.bs-sign:focus-visible,.bs-line:focus-visible{opacity:1;color:var(--gold-lt)}
+.bs-sign{margin-top:4px;letter-spacing:.02em}
+.bs-line{display:block;text-align:center;margin-top:14px}
 </style>
 
 <div class="deco" aria-hidden="true" id="deco"></div>
@@ -489,6 +493,7 @@ body.adm .wa-fab{display:none}
     </div>
     <p class="today" id="waPlainRow" style="margin:0">הוואטסאפ לא נפתח? שלחו את ההודעה למספר <b dir="ltr" id="waPlain"></b></p>
     <button class="textlink" id="editBtn" type="button">חזרה לעריכה</button>
+    <a class="bs-line" href="https://barbershops.company/?from=ariel#contact" target="_blank" rel="noopener">בעל עסק? רוצה אפליקציה כזאת?</a>
   </section>
 
   <section class="reviews" id="reviews" aria-labelledby="revTitle">
@@ -525,6 +530,7 @@ body.adm .wa-fab{display:none}
   <footer>
     <div id="footBiz">אריאל · ספר גברים · חולון</div>
     <button class="ownerlink" id="ownerLink" type="button">כניסת מנהל</button>
+    <a class="bs-sign" href="https://barbershops.company/?from=ariel#contact" target="_blank" rel="noopener">נבנה ע״י BarberShops</a>
   </footer>
 </div>
 
