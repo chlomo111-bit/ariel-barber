@@ -253,6 +253,23 @@ body.adm .wa-fab{display:none}
 .tdi b{font-variant-numeric:tabular-nums}
 .tdi.done{opacity:.5}.tdi.now{border-color:var(--gold-lt)}
 .calhead h3{flex:1;text-align:center}
+/* reviews */
+.reviews{text-align:center;padding-block:34px 6px;border-top:1px solid var(--line);margin-top:10px}
+.reviews h2{font-size:26px;font-weight:800}
+.reviews .under{width:46px;height:4px;border-radius:2px;background:var(--gold);margin:10px auto 0}
+.revsum{margin:14px 0 6px;color:var(--muted);font-size:15px}
+.revsum b{font-size:30px;color:var(--gold-lt);font-weight:900;display:block;line-height:1.1}
+.revsum .st{color:var(--gold);font-size:20px;letter-spacing:2px}
+.revlist{display:grid;gap:10px;margin-top:12px}
+.rev{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;text-align:center}
+.rev .st{color:var(--gold);letter-spacing:2px}
+.rev .nm{font-weight:800;margin-top:2px}
+.rev .tx{color:var(--text);margin-top:4px;white-space:pre-line;overflow-wrap:anywhere}
+.rev .dt{color:var(--muted);font-size:12px;margin-top:4px}
+.revform{margin-top:14px;text-align:center}
+.stars{display:flex;justify-content:center;gap:6px;margin-bottom:12px;direction:ltr}
+.stars button{background:none;border:0;font-size:38px;line-height:1;color:#3a3326;cursor:pointer;padding:2px;min-width:44px;min-height:44px}
+.stars button.on{color:var(--gold)}
 /* admin clients */
 .cli{border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--bg)}
 .cli.open{border-color:var(--gold)}
@@ -427,6 +444,25 @@ body.adm .wa-fab{display:none}
     </div>
     <p class="today" id="waPlainRow" style="margin:0">הוואטסאפ לא נפתח? שלחו את ההודעה למספר <b dir="ltr" id="waPlain"></b></p>
     <button class="textlink" id="editBtn" type="button">חזרה לעריכה</button>
+  </section>
+
+  <section class="reviews" id="reviews" aria-labelledby="revTitle">
+    <h2 id="revTitle">מה הלקוחות אומרים</h2><div class="under"></div>
+    <div class="revsum" id="revSum"></div>
+    <div class="revlist" id="revList"></div>
+    <button class="ghost" id="revOpen" type="button" style="max-width:420px;margin:14px auto 0">כתבו ביקורת ⭐</button>
+    <form class="card revform" id="revForm" hidden novalidate>
+      <div class="stars" id="revStars" role="radiogroup" aria-label="דירוג">
+        <button type="button" data-st="1" aria-label="כוכב אחד">★</button><button type="button" data-st="2" aria-label="2 כוכבים">★</button><button type="button" data-st="3" aria-label="3 כוכבים">★</button><button type="button" data-st="4" aria-label="4 כוכבים">★</button><button type="button" data-st="5" aria-label="5 כוכבים">★</button>
+      </div>
+      <div class="field"><label for="rvName">שם (יופיע באתר)</label><input id="rvName" maxlength="30" autocomplete="given-name"></div>
+      <div class="field"><label for="rvPhone">טלפון (לא יופיע באתר)</label><input id="rvPhone" type="tel" dir="ltr" inputmode="tel" maxlength="17" placeholder="050-1234567"></div>
+      <div class="field"><label for="rvText">הביקורת שלך</label><textarea id="rvText" rows="3" maxlength="300" style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;width:100%;font-size:16px"></textarea></div>
+      <div class="field" id="rvCodeWrap" hidden><label for="rvCode">הקוד שקיבלת בוואטסאפ</label><input id="rvCode" inputmode="numeric" maxlength="4" dir="ltr" style="letter-spacing:.5em;font-size:22px;font-weight:800"></div>
+      <div class="msg" id="rvMsg" style="text-align:center"></div>
+      <button class="cta md" id="rvBtn" type="submit">שלחו לי קוד לאימות</button>
+      <p class="fine">רק לקוחות שקבעו תור יכולים לכתוב ביקורת. מספר הטלפון לא מתפרסם.</p>
+    </form>
   </section>
 
   <footer>
@@ -696,6 +732,42 @@ $("mineList").addEventListener("click",function(e){
   }).catch(function(){b.disabled=false;b.textContent="אין חיבור לשירות כרגע. נסו שוב או כתבו ל"+cfg.biz.name});
 });
 
+/* ---- customer reviews ---- */
+var rvStars=0,rvOtp=false,rvBusy=false;
+function starStr(n){return "★★★★★".slice(0,n)+"☆☆☆☆☆".slice(0,5-n)}
+function renderReviews(){
+  var l=(cfg.reviews||[]).filter(function(r){return !r.hidden});
+  if(!l.length){$("revSum").textContent="עוד אין ביקורות. היו הראשונים!";$("revList").innerHTML="";return}
+  var avg=l.reduce(function(a,r){return a+(+r.stars||0)},0)/l.length;
+  $("revSum").innerHTML="<b>"+avg.toFixed(1)+"</b><span class=\"st\">"+starStr(Math.round(avg))+"</span><br>"+l.length+" ביקורות";
+  $("revList").innerHTML=l.slice(0,12).map(function(r){var d=parseYmd(r.date||ymd(new Date()));
+    return '<div class="rev"><div class="st">'+starStr(+r.stars||0)+'</div><div class="nm">'+esc(r.name)+'</div>'+(r.text?'<div class="tx">'+esc(r.text)+'</div>':'')+'<div class="dt">'+d.getDate()+"."+(d.getMonth()+1)+"."+d.getFullYear()+'</div></div>'}).join("");
+}
+function rvMsg(t,ok){var m=$("rvMsg");m.textContent=t||"";m.className="msg"+(t?(ok?" ok":" bad"):"")}
+function setStars(n){rvStars=n;[].forEach.call($("revStars").children,function(b){b.classList.toggle("on",+b.dataset.st<=n);b.setAttribute("aria-pressed",String(+b.dataset.st===n))})}
+$("revStars").addEventListener("click",function(e){var b=e.target.closest("[data-st]");if(b)setStars(+b.dataset.st)});
+$("revOpen").addEventListener("click",function(){$("revForm").hidden=false;this.hidden=true;checkBot();setTimeout(function(){try{$("revStars").children[4].focus()}catch(_){}},50)});
+$("rvPhone").addEventListener("input",function(){if(rvOtp){rvOtp=false;$("rvCodeWrap").hidden=true;$("rvBtn").textContent="שלחו לי קוד לאימות"}});
+$("revForm").addEventListener("submit",function(e){
+  e.preventDefault();if(rvBusy)return;
+  var name=$("rvName").value.trim(),phone=$("rvPhone").value,text=$("rvText").value.trim();
+  if(!rvStars)return rvMsg("בחרו דירוג בכוכבים.");
+  if(!name)return rvMsg("כתבו את השם שלכם.");
+  if(!phoneOk(phone))return rvMsg("מספר נייד לא תקין.");
+  if(!botOn||!cfg.botUrl)return rvMsg("אפשר לכתוב ביקורת כשהשירות זמין. נסו שוב בעוד כמה דקות.");
+  rvBusy=true;
+  if(!rvOtp){rvMsg("שולח קוד…",true);
+    botCall("/otp",{phone:phone}).then(function(j){rvBusy=false;
+      if(j.ok){rvOtp=true;$("rvCodeWrap").hidden=false;$("rvBtn").textContent="פרסום הביקורת";rvMsg("שלחנו לך קוד בוואטסאפ ✓",true);try{$("rvCode").focus()}catch(_){}}
+      else rvMsg(j.error==="rate"?"יותר מדי ניסיונות. נסו שוב מאוחר יותר.":j.error==="nowa"?"המספר הזה לא רשום בוואטסאפ.":"השליחה נכשלה. נסו שוב.");
+    }).catch(function(){rvBusy=false;rvMsg("אין חיבור. נסו שוב.")});return}
+  rvMsg("מפרסם…",true);
+  botCall("/review",{phone:phone,code:$("rvCode").value.trim(),name:name,stars:rvStars,text:text}).then(function(j){rvBusy=false;
+    if(j.ok){cfg.reviews=[j.review].concat((cfg.reviews||[]).filter(function(r){return r.id!==j.review.id}));renderReviews();$("revForm").hidden=true;$("revSum").scrollIntoView({behavior:reduce?"auto":"smooth",block:"center"});rvMsg("");return}
+    rvMsg(j.error==="code"?"הקוד לא נכון.":j.error==="expired"?"הקוד פג תוקף. שנו את המספר ושלחו שוב.":j.error==="notclient"?"רק לקוחות שקבעו תור אצלנו יכולים לכתוב ביקורת.":"משהו השתבש. נסו שוב.");
+  }).catch(function(){rvBusy=false;rvMsg("אין חיבור. נסו שוב.")});
+});
+
 /* ---- add to the customer's calendar ---- */
 function calStamp(day,min){return day.replace(/-/g,"")+"T"+fromMin(min).replace(":","")+"00"}
 function calLink(){
@@ -845,6 +917,7 @@ if(G){G.from(".emblem",{scale:.85,opacity:0,duration:.8,ease:"power3.out",clearP
 
 /* ---- load published config ---- */
 function applyConfig(c){
+  if(c&&Array.isArray(c.services))setTimeout(renderReviews,0);
   if(!c||!Array.isArray(c.services)||!Array.isArray(c.hours))return;
   cfg=c;cfg.busy=cfg.busy||[];cfg.vacations=cfg.vacations||[];cfg.addons=cfg.addons||[];
   if(sel.svc&&!svcById(sel.svc))sel.svc=null;
@@ -962,7 +1035,7 @@ var ghDb={collection:function(){return {
   doc:function(id){return {set:function(d){return mutate(function(st){st[id]=d},"update "+id)},delete:function(){return mutate(function(st){delete st[id]},"delete "+id)}}},
   onSnapshot:function(f){listeners.push(f);emit();return function(){}}
 }}};
-var ghArtifact={publish:async function(files){var o=JSON.parse(files["config.json"].content);await saveConfig(function(l){o.botUrl=l.botUrl;o.botAt=l.botAt;o.busy=busyFromStore();return o},"settings")}};
+var ghArtifact={publish:async function(files){var o=JSON.parse(files["config.json"].content);await saveConfig(function(l){o.botUrl=l.botUrl;o.botAt=l.botAt;o.busy=busyFromStore();o.reviews=l.reviews||[];return o},"settings")}};
 var inboxBusy=false;
 async function importInbox(){
   if(inboxBusy||!ghToken)return;var ib=null;Object.keys(store).forEach(function(k){if(store[k]&&store[k].kind==="inbox")ib=store[k]});
@@ -1125,7 +1198,7 @@ function renderTab(){
       '<div class="field"><label for="gTag">מסר מרכזי</label><input id="gTag" data-g="biz.tagline" value="'+esc(g.biz.tagline)+'"></div>'+
       '<div class="field"><label for="gArea">כתובת / אזור</label><input id="gArea" data-g="biz.area" value="'+esc(g.biz.area)+'"></div>'+
       '<div class="field"><label for="gWa">מספר וואטסאפ לקבלת בקשות</label><input id="gWa" type="tel" dir="ltr" data-g="wa" value="'+esc(g.wa)+'"><div class="msg" id="gWaMsg"></div></div></div>'+
-      usersHtml()+
+      usersHtml()+reviewsAdminHtml()+
       '<div class="card"><h3>חוקי הזמנה</h3><div class="grid2">'+
       '<div class="field"><label for="gMode">פתיחת היומן</label><select id="gMode" data-g="openMode"><option value="biweekly"'+(g.openMode==="biweekly"?" selected":"")+'>כל שבועיים ביום שישי</option><option value="rolling"'+(g.openMode!=="biweekly"?" selected":"")+'>רציף, X ימים קדימה</option></select></div>'+
       '<div class="field"><label for="gAnchor">יום שישי של פתיחה (תאריך אחד)</label><input id="gAnchor" type="date" data-g="openAnchor" value="'+esc(g.openAnchor||"")+'"></div>'+
@@ -1188,6 +1261,13 @@ function waHtml(){
   if(st&&st.log&&st.log.length){h+='<div class="card"><h3>יומן פעילות</h3>';st.log.slice(0,30).forEach(function(e){var d=new Date(e.t);h+='<div class="row"><span class="who" style="width:92px;flex:none;font-variant-numeric:tabular-nums">'+pad(d.getDate())+"."+pad(d.getMonth()+1)+" "+pad(d.getHours())+":"+pad(d.getMinutes())+'</span><span class="grow">'+esc(e.text)+'</span></div>'});h+='</div>'}
   setTimeout(drawQr,0);
   return h;
+}
+function reviewsAdminHtml(){
+  var l=(pubCfg&&pubCfg.reviews)||cfg.reviews||[],h='<div class="card"><h3>ביקורות לקוחות ('+l.length+')</h3>';
+  if(!l.length)h+='<p class="who">עוד אין ביקורות.</p>';
+  l.forEach(function(r){h+='<div class="row"><div class="grow"><b>'+esc(r.name)+'</b> <span style="color:var(--gold)">'+starStr(+r.stars||0)+'</span>'+(r.hidden?' <span class="badge block">מוסתר</span>':'')+(r.text?'<div class="who">'+esc(r.text)+'</div>':'')+'</div>'+
+    '<button class="btn" type="button" data-rvhide="'+esc(r.id)+'">'+(r.hidden?'הצג':'הסתר')+'</button><button class="btn danger" type="button" data-rvdel="'+esc(r.id)+'">'+(armed==="rv:"+r.id?"בטוח?":"מחק")+'</button></div>'});
+  return h+'<div class="msg" id="rvAdmMsg"></div></div>';
 }
 function usersHtml(){
   var h='<div class="card"><h3>משתמשי ניהול</h3><p class="who">כל משתמש נכנס עם שם וסיסמה משלו. בכל מכשיר חדש צריך גם את מפתח GitHub פעם אחת.</p>';
@@ -1416,6 +1496,12 @@ $("tabBody").addEventListener("click",async function(e){
       else{await db.collection("data/users/"+uid).doc(id).delete();setStatus("✓ נמחק")}
       if(old&&old.kind==="appt"&&old.phone&&old.date>=ymd(new Date()))botAdmin("/admin/cancel",{}).then(function(){setStatus("✓ התור בוטל. הלקוח והמנהלים יקבלו הודעה בוואטסאפ")}).catch(function(){setStatus("✓ התור בוטל. ההודעות יישלחו כשהבוט מחובר")});
     }catch(_){setStatus("המחיקה נכשלה","dirty")}
+  }
+  else if(t.dataset.rvhide||t.dataset.rvdel){
+    var rid=t.dataset.rvhide||t.dataset.rvdel;
+    if(t.dataset.rvdel&&armed!=="rv:"+rid){armed="rv:"+rid;renderTab();return}armed=null;t.disabled=true;
+    try{await saveConfig(function(l){l.reviews=(l.reviews||[]).map(function(r){if(r.id!==rid)return r;if(t.dataset.rvhide){r.hidden=!r.hidden}return r}).filter(function(r){return !(t.dataset.rvdel&&r.id===rid)});return l},"review moderation");
+      applyConfig(clone(pubCfg));renderTab()}catch(_){var rm=$("rvAdmMsg");if(rm){rm.textContent="השמירה נכשלה";rm.className="msg bad"}t.disabled=false}
   }
   else if(t.id==="nuAdd"){
     var un=$("nuName").value.trim().toLowerCase(),up=$("nuPass").value,um=$("uMsg");

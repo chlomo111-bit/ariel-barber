@@ -421,6 +421,27 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
 
+    /* customer review: verified phone (code) + must be a client; public part goes to config.reviews (no phone) */
+    if (p === "/review" && req.method === "POST") {
+      const b = await body(req), phone = pLocal(b.phone), o = OTP.get(phone);
+      if (!o || o.exp < Date.now()) return send(res, 400, { error: "expired" });
+      if (String(b.code || "").trim() !== o.code) { o.tries++; if (o.tries >= 5) OTP.delete(phone); return send(res, 400, { error: "code" }); }
+      const name = String(b.name || "").trim().replace(/\s+/g, " ").slice(0, 30), text = String(b.text || "").trim().slice(0, 300), stars = Math.max(1, Math.min(5, Math.round(+b.stars || 0)));
+      if (!name || !stars) return send(res, 400, { error: "bad" });
+      const docs = await readStore();
+      const isClient = Object.values(docs).some(a => a && a.kind === "appt" && live(a) && a.phone && pLocal(a.phone) === phone);
+      if (!isClient) return send(res, 403, { error: "notclient" });
+      OTP.delete(phone);
+      const meta = docs["c" + phone] || {}, id = meta.reviewId || ("r" + Date.now().toString(36) + randomInt(100, 999));
+      const rv = { id, name, stars, text, date: ymd(new Date()) };
+      await updateFile("config.json", readConfig, writeConfig, c => { c.reviews = (c.reviews || []).filter(r => r.id !== id); c.reviews.unshift(rv); c.reviews = c.reviews.slice(0, 200); return c; }, "review " + stars + "★");
+      await changeStore(d => { d["c" + phone] = Object.assign({ kind: "client", phone, name }, d["c" + phone] || {}, { reviewId: id }); return d; }, "review link");
+      CFG = await readConfig();
+      for (const ph of adminPhones()) sendWA(ph, "⭐ ביקורת חדשה באתר\n" + "★".repeat(stars) + "☆".repeat(5 - stars) + "\n" + name + " · " + phone + (text ? "\n\n" + text : "")).catch(() => {});
+      log("review", "ביקורת " + stars + "★ מ-" + name);
+      return send(res, 200, { ok: true, review: rv });
+    }
+
     if (p === "/book" && req.method === "POST") {
       const b = await body(req), phone = pLocal(b.phone), o = OTP.get(phone);
       if (!o || o.exp < Date.now()) return send(res, 400, { error: "expired" });
