@@ -387,6 +387,7 @@ body.adm .wa-fab{display:none}
 .bs-sign,.bs-line{color:var(--muted);opacity:.55;font-size:11.5px;text-decoration:none;transition:opacity .2s}
 .bs-sign:hover,.bs-line:hover,.bs-sign:focus-visible,.bs-line:focus-visible{opacity:1;color:var(--gold-lt)}
 .bs-sign{margin-top:4px;letter-spacing:.02em}
+#findCode:not(:placeholder-shown){letter-spacing:.3em}
 .bs-mark{display:inline-flex;align-items:center;gap:4px;vertical-align:middle}
 .bs-line{display:block;text-align:center;margin-top:14px}
 </style>
@@ -509,7 +510,8 @@ body.adm .wa-fab{display:none}
     <div class="top"><div class="toprow"><button class="back" type="button" data-back="home" aria-label="חזרה"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       <div class="mini"><span class="bn">אריאל ספר</span><svg aria-hidden="true"><use href="#logo"/></svg></div></div></div>
     <h2>התורים שלי</h2><div class="under"></div>
-    <p class="sub">הבקשות ששלחת מהטלפון הזה</p>
+    <p class="sub">התורים שקבעת</p>
+    <button class="ghost" id="findBtn" type="button" style="width:100%;margin-bottom:12px">🔎 מצא את התורים שלי לפי מספר טלפון</button>
     <div id="mineList" class="svcs"></div>
   </section>
 
@@ -555,6 +557,18 @@ body.adm .wa-fab{display:none}
   <div class="instbar" id="instBar" hidden role="dialog" aria-label="התקנה כאפליקציה">
     <div class="instrow"><img src="icon-192.png" alt="" width="56" height="56"><div><b>אריאל ספר כאפליקציה בטלפון</b><span>פותחים בנגיעה מהמסך, בלי לחפש את הקישור</span></div></div>
     <div class="instbtns"><button class="cta md" id="instYes" type="button">להוסיף (3 נגיעות)</button><button class="ghost" id="instNo" type="button">לא עכשיו</button></div>
+  </div>
+  <div class="instmodal" id="findModal" hidden role="dialog" aria-modal="true" aria-labelledby="findTitle">
+    <form class="instcard" id="findForm" novalidate>
+      <div style="text-align:center"><b id="findTitle" style="font-size:19px">מצא את התורים שלי</b><p class="today" style="margin:6px 0 0">מכל טלפון או מחשב. נשלח לך קוד בוואטסאפ לאימות.</p></div>
+      <div class="field"><label class="sr" for="findPhone">מספר טלפון</label>
+      <input id="findPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="מספר הטלפון שלך" dir="ltr" style="text-align:center"></div>
+      <div id="findCodeWrap" class="field" hidden><label class="sr" for="findCode">קוד מהוואטסאפ</label>
+      <input id="findCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="4" placeholder="הקוד מהוואטסאפ" dir="ltr" style="text-align:center"></div>
+      <p class="msg" id="findMsg" aria-live="polite" style="text-align:center;margin:0"></p>
+      <button class="cta md" id="findGo" type="submit">שלחו לי קוד</button>
+      <button class="ghost" id="findClose" type="button">סגירה</button>
+    </form>
   </div>
   <div class="instmodal" id="instModal" hidden role="dialog" aria-modal="true" aria-labelledby="instTitle">
     <div class="instcard">
@@ -810,7 +824,7 @@ function mineSet(l){try{localStorage.setItem(MINE_KEY,JSON.stringify(l.slice(-30
 function mineAdd(r){try{var l=mineGet().filter(function(x){return !(x.day===r.day&&x.time===r.time)});l.push(r);localStorage.setItem(MINE_KEY,JSON.stringify(l.slice(-30)))}catch(_){}}
 function renderMine(){
   var l=mineGet().sort(function(a,b){return (b.day+b.time)<(a.day+a.time)?-1:1}),now=ymd(new Date())+" "+fromMin(nowMin());
-  if(!l.length){$("mineList").innerHTML='<p class="empty">עוד לא שלחת מכאן בקשה לתור.</p>';return}
+  if(!l.length){$("mineList").innerHTML='<p class="empty">אין כאן תורים עדיין. קבעת תור מטלפון אחר? לחצו על ״מצא את התורים שלי״ למעלה.</p>';return}
   $("mineList").innerHTML=l.map(function(r){
     var past=(r.day+" "+r.time)<now,key=r.day+"|"+r.time;
     /* the public agenda tells whether this slot is still booked */
@@ -823,7 +837,7 @@ function renderMine(){
       '<span class="why" style="color:'+(past?'var(--muted)':'var(--gold-lt)')+'">'+st+'</span></span><span class="pr">'+esc(r.total)+' ₪</span>'+
       (can?'<button type="button" class="ghost" data-mcancel="'+esc(key)+'" style="width:100%;min-height:44px;margin-top:6px;border-color:var(--err);color:var(--err)">'+(cancelArmed===key?'לחצו שוב לאישור הביטול':'ביטול התור')+'</button>':'')+
       (past||off?'<button type="button" class="textlink" data-mremove="'+esc(key)+'" style="width:100%;font-size:14px;padding:6px">הסר מהרשימה</button>':'')+'</div>';
-  }).join("")+'<p class="hint" style="text-align:center">הרשימה נשמרת רק בדפדפן הזה. אם תחליף טלפון או תמחק נתוני גלישה, היא תתאפס.</p>';
+  }).join("")+'<p class="hint" style="text-align:center">חסר תור? לחצו על ״מצא את התורים שלי״ ותקבלו את כל התורים הקרובים למספר שלכם.</p>';
 }
 var cfgFresh=false;
 $("myLink").addEventListener("click",function(){cfgFresh=false;renderMine();show("sMine",1);
@@ -842,6 +856,50 @@ $("mineList").addEventListener("click",function(e){
     if(j.error==="notfound"){b.textContent="התור לא נמצא, אולי כבר בוטל. כתבו ל"+cfg.biz.name;return}
     b.disabled=false;b.textContent="הביטול נכשל, נסו שוב";
   }).catch(function(){b.disabled=false;b.textContent="אין חיבור לשירות כרגע. נסו שוב או כתבו ל"+cfg.biz.name});
+});
+
+/* ---- find my appointments from any device (phone + WhatsApp code) ---- */
+var findSent=false,findBusy=false;
+function findMsg(t,ok){var m=$("findMsg");m.textContent=t||"";m.className="msg"+(t?(ok?" ok":" bad"):"")}
+function findReset(){findSent=false;findBusy=false;$("findCodeWrap").hidden=true;$("findCode").value="";$("findGo").disabled=false;$("findGo").textContent="שלחו לי קוד";findMsg("")}
+function findOpen(){findReset();if(!$("findPhone").value&&sel.phone)$("findPhone").value=sel.phone;$("findModal").hidden=false;setTimeout(function(){try{$("findPhone").focus()}catch(_){}},50)}
+function findClose(){$("findModal").hidden=true}
+$("findBtn").addEventListener("click",findOpen);
+$("findClose").addEventListener("click",findClose);
+$("findModal").addEventListener("click",function(e){if(e.target===this)findClose()});
+$("findPhone").addEventListener("input",function(){if(findSent)findReset()});
+$("findCode").addEventListener("input",function(){this.value=this.value.replace(/\D/g,"").slice(0,4);if(this.value.length===4&&!findBusy)$("findForm").requestSubmit&&$("findForm").requestSubmit()});
+$("findForm").addEventListener("submit",function(e){
+  e.preventDefault();if(findBusy)return;
+  var ph=$("findPhone").value.trim();
+  if(!phoneOk(ph)){findMsg("בדקו את מספר הטלפון.");return}
+  if(!cfg.botUrl){findMsg("השירות לא זמין כרגע. נסו שוב מאוחר יותר.");return}
+  var go=$("findGo");findBusy=true;go.disabled=true;
+  if(!findSent){
+    findMsg("שולח קוד…",true);
+    botCall("/otp",{phone:ph}).then(function(j){
+      findBusy=false;go.disabled=false;
+      if(j.ok){findSent=true;$("findCodeWrap").hidden=false;go.textContent="הצג את התורים שלי";findMsg("שלחנו לך קוד בוואטסאפ ✓",true);setTimeout(function(){try{$("findCode").focus()}catch(_){}},80);return}
+      findMsg(j.error==="nowa"?"המספר הזה לא רשום בוואטסאפ.":j.error==="rate"?"יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.":"השירות לא זמין כרגע. נסו שוב מאוחר יותר.");
+    }).catch(function(){findBusy=false;go.disabled=false;findMsg("השירות לא זמין כרגע. נסו שוב מאוחר יותר.")});
+    return;
+  }
+  var code=$("findCode").value.trim();
+  if(!/^\d{4}$/.test(code)){findBusy=false;go.disabled=false;findMsg("הקלידו את 4 הספרות מהוואטסאפ.");return}
+  findMsg("מחפש…",true);
+  botCall("/mine",{phone:ph,code:code}).then(function(j){
+    findBusy=false;go.disabled=false;
+    if(j.ok){
+      (j.list||[]).forEach(function(a){mineAdd({day:a.day,time:a.time,svc:a.svc,total:a.total,sent:Date.now(),ok:true,id:a.id,ctok:a.ctok})});
+      if(!(j.list||[]).length){findMsg("לא מצאנו תורים קרובים למספר הזה.");findSent=false;$("findCodeWrap").hidden=true;$("findCode").value="";go.textContent="שלחו לי קוד";return}
+      findClose();cfgFresh=false;renderMine();
+      loadCfg().then(function(c){if(c&&Array.isArray(c.busy)){applyConfig(c);cfgFresh=true;renderMine()}}).catch(function(){});
+      return;
+    }
+    if(j.error==="code")findMsg("הקוד לא נכון. בדקו ונסו שוב.");
+    else if(j.error==="expired"){findReset();findMsg("הקוד פג תוקף. שלחו קוד חדש.")}
+    else findMsg("השירות לא זמין כרגע. נסו שוב מאוחר יותר.");
+  }).catch(function(){findBusy=false;go.disabled=false;findMsg("השירות לא זמין כרגע. נסו שוב מאוחר יותר.")});
 });
 
 /* ---- install as an app: offered once per phone ---- */

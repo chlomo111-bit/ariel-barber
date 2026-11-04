@@ -532,6 +532,22 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, review: rv });
     }
 
+    /* "find my appointments" from any device: verified phone (code) -> his upcoming appointments, with cancel tokens */
+    if (p === "/mine" && req.method === "POST") {
+      const b = await body(req), phone = pLocal(b.phone), o = OTP.get(phone);
+      if (!o || o.exp < Date.now()) return send(res, 400, { error: "expired" });
+      if (String(b.code || "").trim() !== o.code) { o.tries++; if (o.tries >= 5) OTP.delete(phone); return send(res, 400, { error: "code" }); }
+      OTP.delete(phone);
+      const today = ymd(new Date()), mk = () => createHash("sha256").update(String(Math.random()) + Date.now() + phone).digest("hex").slice(0, 24);
+      let docs = await readStore();
+      const mineOf = d => Object.entries(d).filter(([, a]) => live(a) && a.kind === "appt" && a.date >= today && pLocal(a.phone) === phone);
+      if (mineOf(docs).some(([, a]) => !a.ctok)) docs = await changeStore(d => { let ch = false; mineOf(d).forEach(([id, a]) => { if (!a.ctok) { d[id] = Object.assign({}, a, { ctok: mk() }); ch = true; } }); return ch ? d : null; }, "cancel tokens");
+      const list = mineOf(docs).map(([id, a]) => ({ id, ctok: a.ctok || "", day: a.date, time: a.time, svc: String(a.note || "").replace(/ ⚠️.*$/, ""), total: +a.price || 0 }))
+        .sort((x, y) => (x.day + x.time).localeCompare(y.day + y.time));
+      log("mine", phone + " ביקש את התורים שלו (" + list.length + ")");
+      return send(res, 200, { ok: true, list });
+    }
+
     if (p === "/book" && req.method === "POST") {
       const b = await body(req), phone = pLocal(b.phone), o = OTP.get(phone);
       if (!o || o.exp < Date.now()) return send(res, 400, { error: "expired" });
