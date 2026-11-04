@@ -353,21 +353,24 @@ let orBusy = false;
 async function openRemindTick() {
   if (orBusy || waState !== "open") return;
   const st = botSet();
-  if (!st.openRemind || CFG.openMode !== "biweekly" || !CFG.openAnchor) return;
+  if (CFG.openMode !== "biweekly" || !CFG.openAnchor) return;
+  const test = !!CFG.openRemindTest;
+  if (!st.openRemind && !test) return;
   const a = parseYmd(CFG.openAnchor), tm = toMin(CFG.openTime || "08:00"); a.setHours(Math.floor(tm / 60), tm % 60, 0, 0);
   const P = 14 * 864e5, next = new Date(a.getTime() + (Math.floor((Date.now() - a.getTime()) / P) + 1) * P);
   const remindAt = new Date(next); remindAt.setDate(remindAt.getDate() - 1); remindAt.setHours(+st.openRemindHour || 20, 0, 0, 0);
   const key = ymd(next), now = Date.now();
-  if (now < remindAt.getTime() || now >= next.getTime() || CFG.openRemindSent === key) return;
+  if (!test && (now < remindAt.getTime() || now >= next.getTime() || CFG.openRemindSent === key)) return;
   orBusy = true;
   try {
     let fresh = false;
-    await updateFile("config.json", readConfig, writeConfig, c => { if (c.openRemindSent === key) return null; fresh = true; c.openRemindSent = key; return c; }, "open-window reminder");
+    if (test) await updateFile("config.json", readConfig, writeConfig, c => { if (!c.openRemindTest) return null; fresh = true; delete c.openRemindTest; return c; }, "open-window reminder test");
+    else await updateFile("config.json", readConfig, writeConfig, c => { if (c.openRemindSent === key) return null; fresh = true; c.openRemindSent = key; return c; }, "open-window reminder");
     CFG = await readConfig();
     if (!fresh) return;
     const end = new Date(next); end.setDate(end.getDate() + 13);
     const sh = d => d.getDate() + "." + (d.getMonth() + 1);
-    const text = fill(st.openRemindText, vars({}, { openDay: "יום " + WD[next.getDay()] + " " + sh(next), openTime: CFG.openTime || "08:00", from: sh(next), to: sh(end) }));
+    const text = (test ? "🧪 בדיקה\n\n" : "") + fill(st.openRemindText, vars({}, { openDay: "יום " + WD[next.getDay()] + " " + sh(next), openTime: CFG.openTime || "08:00", from: sh(next), to: sh(end) }));
     for (const ph of adminPhones()) { await sendWA(ph, text); await new Promise(r => setTimeout(r, 1500)); }
     log("openRemind", "תזכורת פתיחת יומן נשלחה למנהלים (" + key + ")");
   } catch (e) { log("error", "תזכורת פתיחת יומן: " + e.message); } finally { orBusy = false; }
