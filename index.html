@@ -275,6 +275,42 @@ body.adm .wa-fab{display:none}
 .insteps li{counter-increment:st;display:flex;align-items:center;gap:12px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:right;font-size:15px}
 .insteps li::before{content:counter(st);flex:none;width:34px;height:34px;border-radius:10px;background:#2a2213;color:var(--gold-lt);display:grid;place-items:center;font-weight:800}
 .insteps li small{display:block;color:var(--muted);font-size:12px}
+.instcard{max-height:calc(100dvh - 24px);overflow:auto}
+.insteps li{transition:border-color .3s,background .3s}
+.insteps li.on{border-color:var(--gold);background:#1c170e}
+.pm{justify-self:center;width:150px;height:290px;border-radius:26px;background:#1d1b18;padding:7px;box-shadow:0 0 0 1px #3a3328,0 12px 30px rgba(0,0,0,.5)}
+.pm-scr{position:relative;width:100%;height:100%;border-radius:20px;overflow:hidden;background:#f4f1ec;font-size:9px;color:#222;direction:rtl}
+.pm-page{position:absolute;inset:0;padding:30px 10px 0;display:grid;align-content:start;gap:6px}
+.pm-page b{display:block;height:40px;border-radius:8px;background:linear-gradient(135deg,#1a150d,#3b2f17);color:#d8b876;font-size:12px;display:grid;place-items:center}
+.pm-page i{display:block;height:7px;border-radius:4px;background:#ddd6cb}.pm-page i:nth-child(odd){width:70%}
+.pm-top,.pm-bot{position:absolute;left:0;right:0;display:none;align-items:center;gap:6px;padding:0 8px;background:#fff;z-index:2}
+.pm-top{top:0;height:26px;border-bottom:1px solid #e4e0d8}.pm-bot{bottom:0;height:30px;border-top:1px solid #e4e0d8;justify-content:space-around}
+.pm-and .pm-top,.pm-ios .pm-bot{display:flex}.pm-and .pm-page{padding-top:34px}.pm-ios .pm-page{padding-top:14px}
+.pm-url{flex:1;background:#eee;border-radius:9px;height:15px;font-size:7.5px;color:#666;display:grid;place-items:center;direction:ltr}
+.pm-k{font-style:normal;font-size:13px;line-height:1;color:#2b6fe0;display:grid;place-items:center;width:22px;height:22px;border-radius:7px;transition:background .25s}
+.pm-k svg{width:14px;height:14px}
+.pm-menu{position:absolute;z-index:3;background:#fff;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:4px 0;width:100px;opacity:0;transform:scale(.85);transform-origin:top left;transition:opacity .3s,transform .3s;pointer-events:none}
+.pm-and .pm-menu{top:24px;left:6px}.pm-ios .pm-menu{bottom:34px;left:6px;transform-origin:bottom left}
+.pm-sheet{position:absolute;z-index:3;left:0;right:0;bottom:0;background:#f2f1f6;border-radius:14px 14px 0 0;padding:8px 6px 10px;transform:translateY(105%);transition:transform .4s}
+.pm-r{padding:6px 9px;border-radius:7px;transition:background .25s,color .25s;white-space:nowrap}
+.pm-sheet .pm-r{background:#fff;margin-top:3px}
+.pm-conf{position:absolute;z-index:4;opacity:0;transition:opacity .3s,transform .35s;pointer-events:none}
+.pm-ios .pm-conf{inset:0;background:#f2f1f6;transform:translateY(100%);opacity:1;padding:8px}
+.pm-and .pm-conf{left:10px;right:10px;top:95px;background:#fff;border-radius:12px;padding:10px;box-shadow:0 8px 30px rgba(0,0,0,.35);transform:scale(.9)}
+.pm-cbar{display:flex;justify-content:space-between;color:#2b6fe0;font-size:9.5px}.pm-cbar b{font-weight:700}
+.pm-capp{display:flex;align-items:center;gap:7px;background:#fff;border-radius:9px;padding:7px;margin-top:10px;font-size:10px;font-weight:700}
+.pm-capp img{width:26px;height:26px;border-radius:7px}
+.pm-and .pm-cbar{margin-top:10px;justify-content:flex-start;gap:16px;flex-direction:row-reverse}.pm-and .pm-capp{margin-top:6px;padding:0}
+.pm-home{position:absolute;inset:0;z-index:5;background:linear-gradient(160deg,#3d4f7a,#1c2338);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-content:start;gap:10px 6px;padding:26px 9px;opacity:0;transition:opacity .35s;pointer-events:none}
+.pm-home span{aspect-ratio:1;border-radius:8px;background:rgba(255,255,255,.22)}
+.pm-home .pm-me{background:none;display:grid;gap:2px;justify-items:center;color:#fff;font-size:7px;transform:scale(0);transition:transform .45s .35s cubic-bezier(.3,1.6,.5,1)}
+.pm-home .pm-me img{width:100%;border-radius:8px}
+.pm.v-menu .pm-menu{opacity:1;transform:none}.pm.v-sheet .pm-sheet{transform:none}
+.pm-ios.v-conf .pm-conf{transform:none}.pm-and.v-conf .pm-conf{opacity:1;transform:none}
+.pm.v-home .pm-home{opacity:1}.pm.v-home .pm-me{transform:none}
+.pm .hit{background:#d9e6ff}.pm .pm-r.hit{background:#2b6fe0;color:#fff}
+.pm-f{position:absolute;z-index:9;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:rgba(201,162,85,.55);border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);opacity:0;transition:left .6s ease,top .6s ease,opacity .3s,transform .15s}
+.pm-f.show{opacity:1}.pm-f.tap{transform:scale(.7)}
 @keyframes pop{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 /* reviews */
 .reviews{text-align:center;padding-block:34px 6px;border-top:1px solid var(--line);margin-top:10px}
@@ -523,6 +559,16 @@ body.adm .wa-fab{display:none}
   <div class="instmodal" id="instModal" hidden role="dialog" aria-modal="true" aria-labelledby="instTitle">
     <div class="instcard">
       <div class="instrow"><img src="icon-192.png" alt="" width="56" height="56"><div><b id="instTitle">אריאל ספר</b><span>הוספה למסך הבית, ככה:</span></div></div>
+      <div class="pm" id="pm" aria-hidden="true"><div class="pm-scr" id="pmScr">
+        <div class="pm-page"><b>אריאל ספר</b><i></i><i></i><i></i><i></i></div>
+        <div class="pm-top"><span class="pm-url">ariel.barbershops.company</span><i class="pm-k" data-k="dotsA">⋮</i></div>
+        <div class="pm-bot"><i class="pm-k">‹</i><i class="pm-k">›</i><i class="pm-k" data-k="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v8h14v-8"/></svg></i><i class="pm-k">▢</i><i class="pm-k" data-k="dotsI">⋯</i></div>
+        <div class="pm-menu" id="pmMenu"></div>
+        <div class="pm-sheet"><div class="pm-r">העתקה</div><div class="pm-r">הוספה לסימניות</div><div class="pm-r" data-k="a2hsS">הוספה למסך הבית ⊞</div></div>
+        <div class="pm-conf"><div class="pm-cbar"><span>ביטול</span><b data-k="add">הוספה</b></div><div class="pm-capp"><img src="icon-192.png" alt=""><span>אריאל ספר</span></div></div>
+        <div class="pm-home"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span class="pm-me"><img src="icon-192.png" alt="">אריאל</span></div>
+        <div class="pm-f" id="pmF"></div>
+      </div></div>
       <ol class="insteps" id="instSteps"></ol>
       <button class="ghost" id="instOk" type="button">הבנתי</button>
     </div>
@@ -821,9 +867,40 @@ $("instYes").addEventListener("click",function(){
   if(instEvt){instEvt.prompt();instEvt.userChoice.finally(function(){instEvt=null});return}
   $("instSteps").innerHTML=instSteps().map(function(t){return "<li><span>"+t+"</span></li>"}).join("");
   $("instModal").hidden=false;try{$("instOk").focus()}catch(_){}
+  pmStart();
 });
-$("instOk").addEventListener("click",function(){$("instModal").hidden=true});
-$("instModal").addEventListener("click",function(e){if(e.target===this)this.hidden=true});
+$("instOk").addEventListener("click",function(){$("instModal").hidden=true;pmStop()});
+$("instModal").addEventListener("click",function(e){if(e.target===this){this.hidden=true;pmStop()}});
+/* animated phone that shows each step */
+var pmT=null;
+function pmScenes(){
+  var ua=navigator.userAgent||"",ios=/iPhone|iPad|iPod/.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1),crios=/CriOS|FxiOS|EdgiOS/.test(ua);
+  var row=function(t,k){return '<div class="pm-r"'+(k?' data-k="'+k+'"':'')+'>'+t+'</div>'};
+  if(ios&&crios){$("pmMenu").innerHTML=row("כרטיסייה חדשה")+row("שיתוף ⬆︎","shr")+row("הגדרות");
+    return {cls:"pm-ios",sc:[{t:"dotsI",li:0},{v:"menu",t:"shr",li:1},{v:"sheet",t:"a2hsS",li:2},{v:"conf",t:"add",li:3},{v:"home",li:-1}]}}
+  if(ios)return {cls:"pm-ios",sc:[{t:"share",li:0},{v:"sheet",t:"a2hsS",li:1},{v:"conf",t:"add",li:2},{v:"home",li:-1}]};
+  $("pmMenu").innerHTML=row("כרטיסייה חדשה")+row("היסטוריה")+row("הוספה למסך הבית","a2hsM")+row("הגדרות");
+  return {cls:"pm-and",sc:[{t:"dotsA",li:0},{v:"menu",t:"a2hsM",li:1},{v:"conf",t:"add",li:2},{v:"home",li:-1}]};
+}
+function pmStop(){clearTimeout(pmT);pmT=null}
+function pmStart(){
+  pmStop();var P=pmScenes(),pm=$("pm"),scr=$("pmScr"),f=$("pmF"),lis=$("instSteps").children,i=0;
+  pm.className="pm "+P.cls;
+  (function run(){
+    if($("instModal").hidden)return pmStop();
+    var s=P.sc[i];pm.className="pm "+P.cls+(s.v?" v-"+s.v:"");
+    scr.querySelectorAll(".hit").forEach(function(e){e.classList.remove("hit")});
+    for(var n=0;n<lis.length;n++)lis[n].classList.toggle("on",n===s.li);
+    f.classList.remove("tap");
+    var tg=s.t&&scr.querySelector('[data-k="'+s.t+'"]');
+    if(tg){setTimeout(function(){var a=tg.getBoundingClientRect(),b=scr.getBoundingClientRect();
+      f.style.left=(a.left-b.left+Math.min(a.width*.3,22))+"px";f.style.top=(a.top-b.top+a.height*.8)+"px";f.classList.add("show");
+      setTimeout(function(){f.classList.add("tap");tg.classList.add("hit")},800);
+      setTimeout(function(){f.classList.remove("tap")},1000)},450)}
+    else f.classList.remove("show");
+    i=(i+1)%P.sc.length;pmT=setTimeout(run,s.v==="home"?2600:2300);
+  })();
+}
 instOffer();
 /* link from the review request: #review opens the form */
 if(location.hash==="#review"){setTimeout(function(){var r=$("reviews");if(r)r.scrollIntoView({behavior:reduce?"auto":"smooth",block:"start"});$("revOpen").click()},900)}
