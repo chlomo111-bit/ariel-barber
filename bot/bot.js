@@ -146,14 +146,18 @@ async function changeStore(apply, msg) {
 /* ---------- bot texts (overridable from the admin page: config.bot) ---------- */
 const DEFAULT_BOT = {
   otp: "הקוד שלך לקביעת תור אצל {biz}: *{code}*\nהקוד בתוקף ל-10 דקות.",
-  confirm: "היי {name}, התור שלך נקבע ✅\n{service}\n{date} בשעה {time}\n📍 {area}\n\nהוספה ליומן: {cal}\n\nלביטול התור השיבו *ביטול* להודעה הזו.",
-  cancelOk: "התור שלך ב{date} בשעה {time} בוטל ✅\nלקביעת תור חדש: {site}",
+  confirm: "היי {name} ✂️ התור שלך אצל {biz} נקבע!\n🗓 {date} בשעה {time}\n💈 {service}\n📍 {area}\n\n📅 הוספה ליומן: {cal}\n\nלא מסתדר לך? השיבו *ביטול* ונפנה את המקום למישהו אחר 🙏",
+  cancelOk: "התור שלך ב{date} בשעה {time} בוטל ✅\nתודה שעדכנת! מתי שתרצה תור חדש: {site}",
   adminCancel: "❌ תור בוטל{by}\n{name} · {phone}\n{service}\n{date} בשעה {time}",
-  reminder: "היי {name}, תזכורת: התור שלך אצל {biz} היום בשעה {time} ✂️\n📍 {area}\nנתראה!",
+  reminder: "היי {name}, עוד שעה נתראה 💈\nהיום בשעה {time} אצל {biz}\n📍 {area}",
   adminNew: "📅 תור חדש נקבע\n{name} · {phone}\n{service}\n{date} בשעה {time}",
-  cancel: "היי {name}, התור שלך ב{date} בשעה {time} בוטל. לקביעת תור חדש: {site}",
-  autoReply: "שלום! זה מספר אוטומטי לאישורי תורים של {biz} 💈\nלקביעת תור: {site}\nלשאלות כתבו ל{biz}: {adminPhone}",
+  cancel: "היי {name}, מצטערים 🙏 התור שלך ב{date} בשעה {time} בוטל.\nאפשר לקבוע תור חדש כאן: {site}",
+  autoReply: "היי! 💈 זה המספר האוטומטי של {biz} לאישורים ותזכורות.\n✂️ לקביעת תור (30 שניות): {site}\n💬 לשאלות כתבו ל{biz}: {adminPhone}",
   reminderMin: 60,
+  eveRemind: true,
+  eveRemindHour: 20,
+  eveReminder: "היי {name} 👋 רק להזכיר, מחר נתראה ✂️\n🗓 {date} בשעה {time}\n📍 {area}\n\nלא מסתדר? השיבו *ביטול* ונפנה את התור.",
+  confirmManual: true,
   notifyAdmin: true,
   sendConfirm: true,
   sendReminder: true,
@@ -165,13 +169,13 @@ const DEFAULT_BOT = {
   winbackTexts: [
     "היי {first} 👋 סוף השבוע מתקרב, זה הזמן לסדר את השיער ✂️\nקובעים תור כאן: {site}",
     "{first}, עברו כבר כמה שבועות מהתספורת האחרונה 😉 מתי מסדרים?\n{site}",
-    "היי {first}! השבוע עוד יש מקומות פנויים אצל {biz} 💈\nתפוס תור: {site}",
+    "היי {first}! 💈 הגיע הזמן להתחדש? היומן של {biz} פתוח:\n{site}",
     "אהלן {first} ✂️ מגיע לך להיראות חד לסופ״ש.\nלקביעת תור: {site}",
     "{first}, הפייד מתחיל לגדול? 😄 בוא נסדר אותו.\nתור בקליק: {site}",
     "היי {first}, מזמן לא ראינו אותך במספרה 🙂 מחכים לך!\n{site}",
-    "סופ״ש בפתח 🎉 {first}, רוצה להגיע מסודר? יש תורים פנויים:\n{site}",
+    "סופ״ש בפתח 🎉 {first}, רוצה להגיע מסודר? קובעים כאן:\n{site}",
     "{first}, תזכורת קטנה מ{biz}: הגיע הזמן לתספורת ✂️\n{site}",
-    "היי {first} 💈 לפני שהתורים לסוף השבוע נגמרים, קבע לך מקום:\n{site}",
+    "היי {first} 💈 מתי סוגרים את התספורת הבאה? כאן בקליק:\n{site}",
     "אהלן {first}! שבועיים בלי תספורת זה הרבה 😅 קובעים עכשיו:\n{site}"
   ],
   winbackFooter: "\n\nלהסרה מההודעות השיבו *הסר*",
@@ -640,6 +644,38 @@ const server = http.createServer(async (req, res) => {
 
 /* ---------- reminders: every minute ---------- */
 let reminderBusy = false;
+/* journey: confirmation for appointments Ariel adds by hand + evening-before reminder */
+const MANUAL_CONFIRM_FROM = Date.parse("2026-11-05T15:30:00Z"); // never message appointments added before this feature
+let journeyBusy = false;
+async function journeyTick() {
+  if (journeyBusy || waState !== "open") return;
+  journeyBusy = true;
+  try {
+    CFG = await readConfig();
+    const st = botSet(), now = Date.now(), nowD = new Date(), today = ymd(nowD);
+    const tmr = new Date(nowD); tmr.setDate(tmr.getDate() + 1); const tomorrow = ymd(tmr);
+    const docs = await readStore(), conf = [], eve = [];
+    for (const [id, a] of Object.entries(docs)) {
+      if (!live(a) || a.kind !== "appt" || !a.phone || !a.date || !a.time || a.date < today) continue;
+      const t = parseYmd(a.date).getTime() + toMin(a.time) * 60e3;
+      if (t <= now) continue;
+      if (st.confirmManual && a.source !== "web" && a.confirmSent === undefined && (a.created || 0) >= MANUAL_CONFIRM_FROM && now - a.created > 2 * 60e3) conf.push([id, a]);
+      else if (st.eveRemind && !a.eveReminded && a.date === tomorrow && nowD.getHours() >= (+st.eveRemindHour || 20) && nowD.getHours() < 22 && (!a.created || now - a.created > 3 * 3600e3)) eve.push([id, a]);
+    }
+    const doneC = [], doneE = [];
+    for (const [id, a] of conf) {
+      try { await sendWA(a.phone, fill(st.confirm, vars(a))); log("confirm", "אישור נשלח ל-" + (a.name || a.phone) + " (תור שהוזן ידנית)"); doneC.push(id); }
+      catch (e) { log("error", "אישור נכשל ל-" + pLocal(a.phone) + ": " + e.message); if (e.code === "nowa") doneC.push(id); }
+    }
+    for (const [id, a] of eve) {
+      try { await sendWA(a.phone, fill(st.eveReminder, vars(a))); log("reminder", "תזכורת ערב נשלחה ל-" + (a.name || a.phone)); doneE.push(id); }
+      catch (e) { log("error", "תזכורת ערב נכשלה ל-" + pLocal(a.phone) + ": " + e.message); if (e.code === "nowa") doneE.push(id); }
+    }
+    if (doneC.length || doneE.length) await changeStore(d => { doneC.forEach(id => { if (d[id]) d[id].confirmSent = true; }); doneE.forEach(id => { if (d[id]) d[id].eveReminded = true; }); return d; }, "journey messages sent");
+  } catch (e) { log("error", "הודעות מסלול: " + e.message); }
+  finally { journeyBusy = false; }
+}
+
 async function reminderTick() {
   if (reminderBusy || waState !== "open") return;
   reminderBusy = true;
@@ -652,6 +688,8 @@ async function reminderTick() {
       const t = parseYmd(a.date).getTime() + toMin(a.time) * 60e3;
       return t - now <= lead && t > now; // inside the reminder window, still in the future
     });
+    const fresh = due.filter(([, a]) => a.created && now - a.created < 90 * 60e3).map(([id]) => id); // just booked: the confirmation is enough
+    if (fresh.length) { await changeStore(d => { fresh.forEach(id => { if (d[id]) d[id].reminded = true; }); return d; }, "skip reminder (just booked)"); due.splice(0, due.length, ...due.filter(([id]) => !fresh.includes(id))); }
     if (!due.length) return;
     const sent = [];
     for (const [id, a] of due) {
@@ -776,6 +814,7 @@ function startTunnel() {
   if (PUBLIC_URL) publishUrl(PUBLIC_URL).catch(e => log("error", e.message)); else startTunnel();
   startWA();
   setInterval(reminderTick, 60e3);
+  setInterval(journeyTick, 2 * 60e3);
   setInterval(() => gcalTick(false), 60e3);
   setInterval(winbackTick, 60e3);
   setInterval(openRemindTick, 60e3);
