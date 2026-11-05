@@ -180,6 +180,7 @@ const DEFAULT_BOT = {
   openRemind: true,
   openRemindHour: 20,
   openRemindText: "היי {biz} 👋\nמחר ({openDay}) ב־{openTime} נפתח היומן לשבועיים הבאים: {from}–{to}.\n\nיש שינויים בשעות או ימי חופש? הוסיפו אותם עכשיו, לפני שהלקוחות מתחילים לקבוע:\n{site}#admin",
+  reviewFooter: "\n\n📸 יצאת מרוצה? תייג אותי בסטורי @{ig}",
   reviewTexts: [
     "היי {first}, תודה שבאת היום ✂️ איך יצא? נשמח אם תשאיר ביקורת קצרה, זה לוקח 20 שניות 🙏\n{review}",
     "{first}, מקווים שאתה מרוצה מהתספורת 😎 נשמח לשמוע מה דעתך:\n{review}",
@@ -326,7 +327,8 @@ async function reviewAskTick() {
     const texts = st.reviewTexts && st.reviewTexts.length ? st.reviewTexts : DEFAULT_BOT.reviewTexts, done = [];
     for (const [id, a] of due) {
       const first = String(a.name || "").trim().split(" ")[0];
-      const msg = fill(texts[randomInt(0, texts.length)], vars(a, { first, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
+      const ig = String(CFG.igHandle || "").replace(/^@/, "").trim();
+      const msg = fill(texts[randomInt(0, texts.length)] + (ig && st.reviewFooter ? st.reviewFooter : ""), vars(a, { first, ig, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
       try { await sendWA(a.phone, msg); log("review", "בקשת ביקורת נשלחה ל-" + (a.name || a.phone)); } catch (e) { if (e.code !== "nowa") { log("error", "בקשת ביקורת נכשלה: " + e.message); continue; } }
       done.push(id);
     }
@@ -567,6 +569,7 @@ const server = http.createServer(async (req, res) => {
         const f = slotFree(docs, b.day, b.time, dur);
         if (f !== "ok") { result = f; return null; }
         rec = { kind: "appt", date: b.day, time: b.time, dur, name, phone, note: svc.name, price: +svc.price || 0, source: "web", confirmSent: true, created: Date.now(), reminded: false, ctok };
+        const ref = String(b.src || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20); if (ref) rec.ref = ref;
         newId = "w" + Date.now().toString(36) + randomInt(100, 999);
         docs[newId] = rec;
         return docs;

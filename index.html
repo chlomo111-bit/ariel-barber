@@ -858,6 +858,12 @@ $("mineList").addEventListener("click",function(e){
   }).catch(function(){b.disabled=false;b.textContent="אין חיבור לשירות כרגע. נסו שוב או כתבו ל"+cfg.biz.name});
 });
 
+/* ---- where the visitor came from (?from=ig in the Instagram bio), kept 30 days ---- */
+var REF_KEY="arielFrom";
+(function(){try{var f=new URLSearchParams(location.search).get("from");if(f&&/^[a-z0-9_-]{1,20}$/i.test(f)){localStorage.setItem(REF_KEY,JSON.stringify({v:f.toLowerCase(),t:Date.now()}));
+  if(history.replaceState){var u=new URL(location.href);u.searchParams.delete("from");history.replaceState(null,"",u.pathname+u.search+u.hash)}}}catch(_){}})();
+function refGet(){try{var o=JSON.parse(localStorage.getItem(REF_KEY)||"null");return o&&Date.now()-o.t<30*864e5?o.v:""}catch(_){return ""}}
+
 /* ---- find my appointments from any device (phone + WhatsApp code) ---- */
 var findSent=false,findBusy=false;
 function findMsg(t,ok){var m=$("findMsg");m.textContent=t||"";m.className="msg"+(t?(ok?" ok":" bad"):"")}
@@ -1078,7 +1084,7 @@ function sendOtp(){
 $("resendBtn").addEventListener("click",function(){if(!botBusy)sendOtp()});
 function bookNow(){
   botBusy=true;formChanged();bookMsg("קובע את התור…",true);
-  botCall("/book",{phone:sel.phone,code:$("fcode").value.trim(),name:sel.name.trim(),day:sel.day,time:sel.time,svc:sel.svc}).then(function(j){
+  botCall("/book",{phone:sel.phone,code:$("fcode").value.trim(),name:sel.name.trim(),day:sel.day,time:sel.time,svc:sel.svc,src:refGet()}).then(function(j){
     botBusy=false;
     if(j.ok){bookMsg("");lastBook={id:j.id,ctok:j.ctok};cfg.busy.push({d:sel.day,s:sel.time,m:(svcById(sel.svc)||{}).dur||30});showDone(true);return}
     var e=j.error;
@@ -1610,6 +1616,16 @@ function bizHtml(){
     '<div class="kpi"><small>השבוע</small><b>'+sum(tW)+' ₪</b><span>'+tW.length+' תספורות</span></div>'+
     '<div class="kpi"><small>'+MO[bizMonth.getMonth()]+'</small><b>'+sum(mo)+' ₪</b><span>'+mo.length+' תספורות'+(mo.length?' · ממוצע '+Math.round(sum(mo)/mo.length)+' ₪':'')+'</span></div>'+
     '<div class="kpi"><small>לא הגיעו</small><b>'+noShow+'</b><span>ב'+MO[bizMonth.getMonth()]+'</span></div></div>';
+  /* where bookings come from (last 30 days, by creation) */
+  var cut=Date.now()-30*864e5,src={ig:0,site:0,man:0};
+  allAppts.forEach(function(a){if(!a||a.kind!=="appt"||a.status==="cancelled"||!a.created||a.created<cut)return;
+    if(a.source==="web"&&a.ref==="ig")src.ig++;else if(a.source==="web")src.site++;else src.man++});
+  var stot=src.ig+src.site+src.man;
+  h+='<div class="card"><h3>מאיפה הגיעו התורים (30 יום)</h3><div class="kpis" style="grid-template-columns:repeat(3,1fr)">'+
+    '<div class="kpi"><small>מאינסטגרם</small><b>'+src.ig+'</b><span>דרך הלינק בביו</span></div>'+
+    '<div class="kpi"><small>מהאתר</small><b>'+src.site+'</b><span>הלקוח קבע לבד</span></div>'+
+    '<div class="kpi"><small>ידני</small><b>'+src.man+'</b><span>הוזן בניהול</span></div></div>'+
+    (stot?'<p class="who" style="text-align:center">'+Math.round((src.ig+src.site)/stot*100)+'% מהתורים נקבעו לבד ע״י הלקוחות</p>':'')+'</div>';
   /* last 14 days chart */
   var days=[],max=0;for(var i=13;i>=0;i--){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-i);var ds=ymd(d),v=sum(paid.filter(function(a){return a.date===ds}));days.push({d:d,v:v});if(v>max)max=v}
   h+='<div class="card"><h3>הכנסות ב־14 הימים האחרונים</h3><div class="bars">'+days.map(function(x){var pct=max?Math.round(x.v/max*100):0;
