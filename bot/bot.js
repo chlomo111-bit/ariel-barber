@@ -329,16 +329,16 @@ async function reviewAskTick() {
     if (!due.length) return;
     CFG = await readConfig();
     const texts = st.reviewTexts && st.reviewTexts.length ? st.reviewTexts : DEFAULT_BOT.reviewTexts, done = [];
-    const seenPh = new Set();
+    const seenPh = new Set(), skipped = [];
     for (const [id, a] of due) {
-      if (seenPh.has(pLocal(a.phone))) { done.push(id); continue; } seenPh.add(pLocal(a.phone));
+      if (seenPh.has(pLocal(a.phone))) { skipped.push(id); continue; } seenPh.add(pLocal(a.phone));
       const first = String(a.name || "").trim().split(" ")[0];
       const ig = String(CFG.igHandle || "").replace(/^@/, "").trim();
       const msg = fill(texts[randomInt(0, texts.length)] + (ig && st.reviewFooter ? st.reviewFooter : ""), vars(a, { first, ig, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
       try { await sendWA(a.phone, msg); log("review", "בקשת ביקורת נשלחה ל-" + (a.name || a.phone)); } catch (e) { if (e.code !== "nowa") { log("error", "בקשת ביקורת נכשלה: " + e.message); continue; } }
       done.push(id);
     }
-    if (done.length) await changeStore(d => { done.forEach(id => { if (!d[id]) return; d[id].reviewAsked = true; const ck = "c" + pLocal(d[id].phone);
+    if (done.length || skipped.length) await changeStore(d => { skipped.forEach(id => { if (d[id]) d[id].reviewAsked = true; }); done.forEach(id => { if (!d[id]) return; d[id].reviewAsked = true; const ck = "c" + pLocal(d[id].phone);
       d[ck] = Object.assign({ kind: "client", phone: pLocal(d[id].phone) }, d[ck] || {}); d[ck].reviewAskedAt = Date.now(); d[ck].reviewAsks = (d[ck].reviewAsks || 0) + 1; }); return d; }, "review requests sent");
   } catch (e) { log("error", "בקשות ביקורת: " + e.message); }
   finally { rvAskBusy = false; }
