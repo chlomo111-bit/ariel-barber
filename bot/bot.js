@@ -263,6 +263,8 @@ async function startWA() {
     getMessage: async key => SENT.get(key.id) || undefined
   });
   sock.ev.on("creds.update", saveCreds);
+  sock.ev.on("messages.update", ups => { for (const u of ups) { const v = u.key && u.key.fromMe && DLV.get(u.key.id), st = u.update && u.update.status;
+    if (v && typeof st === "number" && st > v.st) { v.st = st; dlvDirty = true; } } });
   sock.ev.on("connection.update", u => {
     if (u.qr) {
       lastQr = u.qr; waState = "qr";
@@ -481,7 +483,23 @@ async function sendWA(phone, text) {
   const intl = pIntl(phone);
   const [r] = await sock.onWhatsApp(intl);
   if (!r || !r.exists) throw Object.assign(new Error("not on whatsapp"), { code: "nowa" });
-  await waSend(r.jid, { text });
+  const m = await waSend(r.jid, { text });
+  if (m && m.key && m.key.id) { DLV.set(m.key.id, { t: Date.now(), ph: pLocal(phone), txt: String(text).split("\n")[0].slice(0, 60), st: 1 }); dlvDirty = true; }
+}
+/* delivery receipts: 1 sent · 2 on WhatsApp server · 3 delivered to the phone · 4 read — saved to the store every few minutes */
+const DLV = new Map(); let dlvDirty = false;
+async function dlvFlush() {
+  if (!dlvDirty) return; dlvDirty = false;
+  try {
+    const now = Date.now();
+    await changeStore(d => {
+      const old = (d.deliverylog && d.deliverylog.items) || [], byId = new Map(old.map(x => [x.id, x]));
+      for (const [id, v] of DLV) byId.set(id, Object.assign({ id }, v));
+      const items = [...byId.values()].filter(x => now - x.t < 3 * 864e5).sort((x, y) => y.t - x.t).slice(0, 300);
+      d.deliverylog = { kind: "deliverylog", items }; return d;
+    }, "delivery receipts");
+    for (const [id, v] of DLV) if (now - v.t > 864e5) DLV.delete(id);
+  } catch (e) { dlvDirty = true; log("error", "אישורי מסירה: " + e.message); }
 }
 
 /* ---------- verification codes + anti-spam (memory only) ---------- */
@@ -817,6 +835,7 @@ function startTunnel() {
   if (PUBLIC_URL) publishUrl(PUBLIC_URL).catch(e => log("error", e.message)); else startTunnel();
   startWA();
   setInterval(reminderTick, 60e3);
+  setInterval(dlvFlush, 3 * 60e3);
   setInterval(journeyTick, 2 * 60e3);
   setInterval(() => gcalTick(false), 60e3);
   setInterval(winbackTick, 60e3);
