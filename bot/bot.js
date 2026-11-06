@@ -324,19 +324,22 @@ async function reviewAskTick() {
       const end = parseYmd(a.date).getTime() + (toMin(a.time) + (+a.dur || 30)) * 60e3;
       if (now < end + wait || now > end + 6 * 3600e3) return false; // only fresh visits
       const meta = docs["c" + pLocal(a.phone)] || {};
-      return !meta.reviewId && !meta.optOut;
+      return !meta.reviewId && !meta.optOut && (meta.reviewAsks || 0) < 2 && (!meta.reviewAskedAt || now - meta.reviewAskedAt > 60 * 864e5);
     });
     if (!due.length) return;
     CFG = await readConfig();
     const texts = st.reviewTexts && st.reviewTexts.length ? st.reviewTexts : DEFAULT_BOT.reviewTexts, done = [];
+    const seenPh = new Set();
     for (const [id, a] of due) {
+      if (seenPh.has(pLocal(a.phone))) { done.push(id); continue; } seenPh.add(pLocal(a.phone));
       const first = String(a.name || "").trim().split(" ")[0];
       const ig = String(CFG.igHandle || "").replace(/^@/, "").trim();
       const msg = fill(texts[randomInt(0, texts.length)] + (ig && st.reviewFooter ? st.reviewFooter : ""), vars(a, { first, ig, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
       try { await sendWA(a.phone, msg); log("review", "בקשת ביקורת נשלחה ל-" + (a.name || a.phone)); } catch (e) { if (e.code !== "nowa") { log("error", "בקשת ביקורת נכשלה: " + e.message); continue; } }
       done.push(id);
     }
-    if (done.length) await changeStore(d => { done.forEach(id => { if (d[id]) d[id].reviewAsked = true; }); return d; }, "review requests sent");
+    if (done.length) await changeStore(d => { done.forEach(id => { if (!d[id]) return; d[id].reviewAsked = true; const ck = "c" + pLocal(d[id].phone);
+      d[ck] = Object.assign({ kind: "client", phone: pLocal(d[id].phone) }, d[ck] || {}); d[ck].reviewAskedAt = Date.now(); d[ck].reviewAsks = (d[ck].reviewAsks || 0) + 1; }); return d; }, "review requests sent");
   } catch (e) { log("error", "בקשות ביקורת: " + e.message); }
   finally { rvAskBusy = false; }
 }
@@ -684,7 +687,7 @@ async function reminderTick() {
     const st = botSet(); if (!st.sendReminder) return;
     const lead = (+st.reminderMin || 60) * 60e3, now = Date.now();
     const docs = await readStore();
-    const due = Object.entries(docs).filter(([, a]) => live(a) && a.kind === "appt" && a.phone && !a.reminded && a.date && a.time).filter(([, a]) => {
+    const due = Object.entries(docs).filter(([, a]) => live(a) && a.kind === "appt" && a.phone && !a.reminded && !a.eveReminded && a.date && a.time).filter(([, a]) => {
       const t = parseYmd(a.date).getTime() + toMin(a.time) * 60e3;
       return t - now <= lead && t > now; // inside the reminder window, still in the future
     });
