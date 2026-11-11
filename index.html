@@ -1375,7 +1375,7 @@ function renderTab(){
       '<div class="field"><label for="aTime">שעה</label><input id="aTime" type="time" value="12:00"></div>'+
       '<div class="field"><label for="aName">שם</label><input id="aName" maxlength="40"></div>'+
       '<div class="field"><label for="aPhone">טלפון</label><input id="aPhone" type="tel" dir="ltr" maxlength="17"></div></div>'+
-      '<div class="field"><label for="aSvc">שירות</label><select id="aSvc"><option value="">—</option>'+(draft.services||[]).map(function(sv){return '<option value="'+esc(sv.id)+'">'+esc(sv.name)+' · '+esc(sv.price)+' ₪</option>'}).join("")+'</select></div>'+
+      '<div class="field"><label for="aSvc">שירות</label><select id="aSvc">'+(draft.services||[]).map(function(sv){return '<option value="'+esc(sv.id)+'">'+esc(sv.name)+' · '+esc(sv.price)+' ₪</option>'}).join("")+'</select></div>'+
       '<div class="field"><label for="aNote">הערה</label><input id="aNote" maxlength="120"></div>'+
       '<button class="btn primary" style="width:100%" id="aAdd" type="button">הוסף ליומן</button><div class="msg" id="aMsg"></div></div>';
     h+='<div class="card"><h3>תורים קרובים</h3>';

@@ -184,6 +184,7 @@ const DEFAULT_BOT = {
   openRemind: true,
   openRemindHour: 20,
   openRemindText: "היי {biz} 👋\nמחר ({openDay}) ב־{openTime} נפתח היומן לשבועיים הבאים: {from}–{to}.\n\nיש שינויים בשעות או ימי חופש? הוסיפו אותם עכשיו, לפני שהלקוחות מתחילים לקבוע:\n{site}#admin",
+  reviewNext: "\n\n✂️ רוצה כבר לשריין את התור הבא? {site}",
   reviewFooter: "\n\n📸 יצאת מרוצה? תייג אותי בסטורי @{ig}",
   reviewTexts: [
     "היי {first}, תודה שבאת היום ✂️ איך יצא? נשמח אם תשאיר ביקורת קצרה, זה לוקח 20 שניות 🙏\n{review}",
@@ -335,8 +336,7 @@ async function reviewAskTick() {
     for (const [id, a] of due) {
       if (seenPh.has(pLocal(a.phone))) { skipped.push(id); continue; } seenPh.add(pLocal(a.phone));
       const first = String(a.name || "").trim().split(" ")[0];
-      const ig = String(CFG.igHandle || "").replace(/^@/, "").trim();
-      const msg = fill(texts[randomInt(0, texts.length)] + (ig && st.reviewFooter ? st.reviewFooter : ""), vars(a, { first, ig, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
+      const msg = reviewMsg(st, texts, a, first);
       try { await sendWA(a.phone, msg); log("review", "בקשת ביקורת נשלחה ל-" + (a.name || a.phone)); } catch (e) { if (e.code !== "nowa") { log("error", "בקשת ביקורת נכשלה: " + e.message); continue; } }
       done.push(id);
     }
@@ -387,6 +387,19 @@ async function openRemindTick() {
   } catch (e) { log("error", "תזכורת פתיחת יומן: " + e.message); } finally { orBusy = false; }
 }
 
+function reviewMsg(st, texts, a, first) {
+  const ig = String(CFG.igHandle || "").replace(/^@/, "").trim();
+  return fill(texts[randomInt(0, texts.length)] + (st.reviewNext || "") + (ig && st.reviewFooter ? st.reviewFooter : ""), vars(a, { first, ig, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
+}
+/* test: the review request (as clients get it) to each admin, requested by config.reviewTest */
+async function reviewTest() {
+  const st = botSet(), texts = st.reviewTexts && st.reviewTexts.length ? st.reviewTexts : DEFAULT_BOT.reviewTexts;
+  for (const ph of adminPhones()) {
+    await sendWA(ph, "🧪 בדיקה – כך הלקוח יקבל את בקשת הביקורת:\n\n" + reviewMsg(st, texts, {}, "אריאל")).catch(e => log("error", "בדיקה ל-" + ph + " נכשלה: " + e.message));
+    await new Promise(r => setTimeout(r, 4000));
+  }
+  log("review", "נשלחה בדיקת בקשת ביקורת למנהלים");
+}
 /* test: 2 different come-back texts to each admin, requested by config.winbackTest */
 async function winbackTest() {
   const st = botSet(), texts = (st.winbackTexts && st.winbackTexts.length ? st.winbackTexts : DEFAULT_BOT.winbackTexts);
@@ -403,6 +416,14 @@ async function winbackTest() {
 }
 async function winbackTick() {
   if (wbBusy || waState !== "open") return;
+  if (CFG.reviewTest) {
+    wbBusy = true;
+    try {
+      await updateFile("config.json", readConfig, writeConfig, c => { if (!c.reviewTest) return null; delete c.reviewTest; return c; }, "review test done");
+      CFG = await readConfig(); await reviewTest();
+    } catch (e) { log("error", "בדיקה: " + e.message); } finally { wbBusy = false; }
+    return;
+  }
   if (CFG.winbackTest) {
     wbBusy = true;
     try {
