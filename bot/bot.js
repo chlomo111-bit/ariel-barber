@@ -392,6 +392,31 @@ function reviewMsg(st, texts, a, first, mk = true) {
   return fill(texts[randomInt(0, texts.length)] + (mk ? st.reviewNext || "" : "") + (ig && st.reviewFooter ? st.reviewFooter : ""), vars(a, { first, ig, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
 }
 /* test: the review request (as clients get it) to each admin, requested by config.reviewTest */
+/* test: every message a client can receive, sent one by one (20 s apart) to the number in config.testAll */
+async function testAllMessages(to) {
+  const st = botSet(), d = new Date(); d.setDate(d.getDate() + 1);
+  const a = { name: "שלמה", phone: to, date: ymd(d), time: "18:00", note: "תספורת גבר", price: 70 };
+  const pick = (arr, def) => (arr && arr.length ? arr : def)[0];
+  const clean = t => t.replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
+  const list = [
+    ["קוד אימות (בקביעת תור באתר)", fill(st.otp, vars(a, { code: "4827" }))],
+    ["אישור תור", fill(st.confirm, vars(a))],
+    ["תזכורת ערב לפני (20:00)", fill(st.eveReminder, vars(a))],
+    ["תזכורת שעה לפני (רק אם לא נשלחה תזכורת ערב)", fill(st.reminder, vars(a))],
+    ["בקשת ביקורת – לקוח שהסכים לעדכונים", reviewMsg(st, pick(st.reviewTexts, DEFAULT_BOT.reviewTexts) ? [pick(st.reviewTexts, DEFAULT_BOT.reviewTexts)] : DEFAULT_BOT.reviewTexts, a, "שלמה", true)],
+    ["בקשת ביקורת – לקוח שלא הסכים", reviewMsg(st, [pick(st.reviewTexts, DEFAULT_BOT.reviewTexts)], a, "שלמה", false)],
+    ["אישור ביטול (הלקוח ביטל)", fill(st.cancelOk, vars(a))],
+    ["ביטול ע״י אריאל", fill(st.cancel, vars(a))],
+    ["הודעת חזרה אחרי 14 יום (רק למי שהסכים)", "פרסומת\n" + clean(fill(pick(st.winbackTexts, DEFAULT_BOT.winbackTexts) + (st.winbackFooter || ""), vars(a, { first: "שלמה" })))],
+    ["תשובה אוטומטית כשלקוח כותב לבוט", fill(st.autoReply, vars(a))],
+  ];
+  for (let i = 0; i < list.length; i++) {
+    const [title, body] = list[i];
+    await sendWA(to, "🧪 בדיקה " + (i + 1) + "/" + list.length + " – " + title + "\n\n" + body).catch(e => log("error", "בדיקה נכשלה: " + e.message));
+    if (i < list.length - 1) await new Promise(r => setTimeout(r, 20000));
+  }
+  log("test", "נשלחו כל הודעות הבדיקה ל-" + to);
+}
 async function reviewTest() {
   const st = botSet(), texts = st.reviewTexts && st.reviewTexts.length ? st.reviewTexts : DEFAULT_BOT.reviewTexts;
   for (const ph of adminPhones()) {
@@ -416,6 +441,15 @@ async function winbackTest() {
 }
 async function winbackTick() {
   if (wbBusy || waState !== "open") return;
+  if (CFG.testAll) {
+    wbBusy = true;
+    try {
+      const to = pLocal(String(CFG.testAll));
+      await updateFile("config.json", readConfig, writeConfig, c => { if (!c.testAll) return null; delete c.testAll; return c; }, "test all done");
+      CFG = await readConfig(); if (phoneOk(to)) await testAllMessages(to);
+    } catch (e) { log("error", "בדיקה: " + e.message); } finally { wbBusy = false; }
+    return;
+  }
   if (CFG.reviewTest) {
     wbBusy = true;
     try {
