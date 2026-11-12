@@ -178,7 +178,7 @@ const DEFAULT_BOT = {
     "היי {first} 💈 מתי סוגרים את התספורת הבאה? כאן בקליק:\n{site}",
     "אהלן {first}! שבועיים בלי תספורת זה הרבה 😅 קובעים עכשיו:\n{site}"
   ],
-  winbackFooter: "\n\nלהסרה מההודעות השיבו *הסר*",
+  winbackFooter: "\n\n{biz} · {area} · {adminPhone}\nלהסרה מרשימת התפוצה השיבו *הסר*",
   reviewAsk: true,
   reviewAskMin: 30,
   openRemind: true,
@@ -336,7 +336,7 @@ async function reviewAskTick() {
     for (const [id, a] of due) {
       if (seenPh.has(pLocal(a.phone))) { skipped.push(id); continue; } seenPh.add(pLocal(a.phone));
       const first = String(a.name || "").trim().split(" ")[0];
-      const msg = reviewMsg(st, texts, a, first);
+      const msg = reviewMsg(st, texts, a, first, !!(docs["c" + pLocal(a.phone)] || {}).marketingOk);
       try { await sendWA(a.phone, msg); log("review", "בקשת ביקורת נשלחה ל-" + (a.name || a.phone)); } catch (e) { if (e.code !== "nowa") { log("error", "בקשת ביקורת נכשלה: " + e.message); continue; } }
       done.push(id);
     }
@@ -387,9 +387,9 @@ async function openRemindTick() {
   } catch (e) { log("error", "תזכורת פתיחת יומן: " + e.message); } finally { orBusy = false; }
 }
 
-function reviewMsg(st, texts, a, first) {
+function reviewMsg(st, texts, a, first, mk = true) {
   const ig = String(CFG.igHandle || "").replace(/^@/, "").trim();
-  return fill(texts[randomInt(0, texts.length)] + (st.reviewNext || "") + (ig && st.reviewFooter ? st.reviewFooter : ""), vars(a, { first, ig, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
+  return fill(texts[randomInt(0, texts.length)] + (mk ? st.reviewNext || "" : "") + (ig && st.reviewFooter ? st.reviewFooter : ""), vars(a, { first, ig, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
 }
 /* test: the review request (as clients get it) to each admin, requested by config.reviewTest */
 async function reviewTest() {
@@ -407,7 +407,7 @@ async function winbackTest() {
   let k = 0;
   for (const ph of adminPhones()) {
     for (let n = 0; n < 2; n++) {
-      const msg = "🧪 בדיקה (" + (n + 1) + "/2)\n\n" + fill(texts[order[k++ % texts.length]], vars({}, { first: "" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "") + (st.winbackFooter || "");
+      const msg = "🧪 בדיקה (" + (n + 1) + "/2)\n\nפרסומת\n" + fill(texts[order[k++ % texts.length]] + (st.winbackFooter || ""), vars({}, { first: "" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
       await sendWA(ph, msg).catch(e => log("error", "בדיקה ל-" + ph + " נכשלה: " + e.message));
       await new Promise(r => setTimeout(r, 4000));
     }
@@ -454,7 +454,7 @@ async function winbackTick() {
     }
     const pick = Object.values(people).filter(p => {
       const meta = docs["c" + p.phone] || {};
-      if (meta.optOut || p.future) return false;
+      if (meta.optOut || p.future || !meta.marketingOk) return false; // advertising needs prior consent (Communications Law 30A)
       const ref = p.lastVisit || p.lastActivity;
       if (!ref || nowMs - ref < days || nowMs - p.lastActivity < days) return false; // came or contacted us recently
       if (meta.lastContact && nowMs - meta.lastContact < days) return false;
@@ -464,7 +464,7 @@ async function winbackTick() {
     if (!pick) return;
     const texts = (st.winbackTexts && st.winbackTexts.length ? st.winbackTexts : DEFAULT_BOT.winbackTexts);
     const name = ((docs["c" + pick.phone] || {}).name || pick.name || "").trim();
-    const msg = fill(texts[randomInt(0, texts.length)], vars({ name }, { first: name.split(" ")[0] || "" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "") + (st.winbackFooter || "");
+    const msg = "פרסומת\n" + fill(texts[randomInt(0, texts.length)] + (st.winbackFooter || ""), vars({ name }, { first: name.split(" ")[0] || "" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
     try { await sendWA(pick.phone, msg); }
     catch (e) { if (e.code !== "nowa") throw e; }
     wbCount++; wbLast = Date.now();
@@ -618,6 +618,7 @@ const server = http.createServer(async (req, res) => {
         const ref = String(b.src || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 20); if (ref) rec.ref = ref;
         newId = "w" + Date.now().toString(36) + randomInt(100, 999);
         docs[newId] = rec;
+        if (b.mk === true) docs["c" + phone] = Object.assign({ kind: "client", phone, name }, docs["c" + phone] || {}, { marketingOk: true, marketingAt: Date.now(), marketingVia: "site" });
         return docs;
       }, "booking " + b.day + " " + b.time);
       if (result !== "ok") return send(res, 409, { error: result });

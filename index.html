@@ -51,6 +51,24 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:calc(env(safe-area-
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--gold-lt);outline-offset:3px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:fixed;top:-60px;right:12px;z-index:100;background:var(--gold);color:#111;font-weight:800;padding:10px 16px;border-radius:12px;text-decoration:none}
+.skip:focus{top:12px}
+main:focus{outline:none}
+.footaddr{font-style:normal;font-size:13px;color:var(--muted)}
+.footaddr a,.legal a,.fine a{color:var(--gold-lt);text-decoration:underline;text-underline-offset:3px}
+.legal{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;font-size:13px;margin:2px 0}
+.legal span{color:var(--muted)}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--muted);margin:4px 0 10px;text-align:right;cursor:pointer}
+.consent input{width:20px;height:20px;flex:none;margin-top:2px;accent-color:var(--gold)}
+.legalcard{max-width:560px;text-align:right}
+.legalhead{display:flex;justify-content:space-between;align-items:center;gap:10px;position:sticky;top:-18px;background:var(--surface);padding:6px 0;margin:-6px 0 0}
+.legalhead h2{font-size:21px;margin:0}
+.legalhead .ghost{width:auto;padding:8px 14px}
+.legaltxt{display:grid;gap:8px;font-size:15px;line-height:1.65}
+.legaltxt h3{font-size:16px;color:var(--gold-lt);margin:8px 0 0}
+.legaltxt ul{margin:0;padding-inline-start:20px;display:grid;gap:4px}
+.legaltxt a{color:var(--gold-lt)}
+.legaldate{color:var(--muted);font-size:13px}
 .wrap{max-width:480px;margin:0 auto;position:relative;z-index:1}
 h1,h2{margin:0;text-wrap:balance}
 svg.i{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -69,7 +87,7 @@ svg.i{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-widt
 .emblem .pin{position:absolute;bottom:-26px;width:40px;height:40px;border-radius:50%;background:var(--gold-dk);border:2px solid var(--gold);display:grid;place-items:center;color:var(--gold-lt)}
 .emblem .pin svg{width:20px;height:20px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.home h1{font-size:clamp(40px,12vw,56px);font-weight:900;line-height:1;margin-top:22px;letter-spacing:-.5px}
+.home #hName{font-size:clamp(40px,12vw,56px);font-weight:900;line-height:1;margin-top:22px;letter-spacing:-.5px}
 .bar-gold{width:64px;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--gold-dk),var(--gold-lt),var(--gold-dk))}
 .addr{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:16px}
 .addr svg{color:var(--gold);width:20px;height:20px}
@@ -428,7 +446,10 @@ body.adm .wa-fab{display:none}
   </defs>
 </svg>
 
+<a class="skip" href="#main">דלג לתוכן הראשי</a>
 <div class="wrap">
+<main id="main" tabindex="-1">
+<h1 class="sr">אריאל – ספר גברים בחולון · קביעת תור אונליין</h1>
 
   <!-- LANDING -->
   <section class="home screen" id="home">
@@ -438,7 +459,7 @@ body.adm .wa-fab{display:none}
       <svg class="logo" role="img" aria-label="סמל המספרה של אריאל"><use href="#logo"/></svg>
       <div class="pin" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg></div>
     </div>
-    <h1 class="h-in" id="hName">אריאל ספר</h1>
+    <h2 class="h-in" id="hName">אריאל ספר</h2>
     <div class="bar-gold h-in"></div>
     <div class="addr h-in"><svg class="i" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span id="hArea">חולון, ליד קניון חולון</span></div>
     <div class="tagline h-in" id="hTag">לא מחכים בתור</div>
@@ -499,9 +520,10 @@ body.adm .wa-fab{display:none}
         <div class="field"><label for="fcode">הקוד שקיבלת בוואטסאפ</label><input id="fcode" inputmode="numeric" autocomplete="one-time-code" maxlength="4" dir="ltr" placeholder="• • • •" style="letter-spacing:.5em;font-size:24px;font-weight:800"></div>
         <button class="textlink" id="resendBtn" type="button" style="font-size:15px">לא קיבלתי קוד, שלחו שוב</button>
       </div>
+      <label class="consent"><input type="checkbox" id="fmk"> <span>אשמח לקבל בוואטסאפ עדכונים ותורים פנויים מ<span class="bizname">אריאל</span> (אפשר להסיר בכל רגע)</span></label>
       <div class="msg" id="bookMsg" aria-live="polite" style="text-align:center"></div>
       <button class="cta md" id="toConfirm" type="submit" disabled>שליחת בקשה לתור</button>
-      <p class="fine" id="fineTxt">הבקשה נשלחת מהוואטסאפ שלך, כך <span class="bizname">אריאל</span> רואה שהמספר אמיתי. התור נסגר רק אחרי שהוא מאשר לך בחזרה.</p>
+      <p class="fine" id="fineTxt">נשלח לך קוד לאימות בוואטסאפ. הפרטים משמשים לקביעת התור, לאישור ולתזכורת לפני התור. <a href="#privacy" data-legal="priv">מדיניות הפרטיות</a> · <a href="#terms" data-legal="terms">תקנון</a></p>
     </form>
   </section>
 
@@ -550,13 +572,59 @@ body.adm .wa-fab{display:none}
       <div class="field" id="rvCodeWrap" hidden><label for="rvCode">הקוד שקיבלת בוואטסאפ</label><input id="rvCode" inputmode="numeric" maxlength="4" dir="ltr" style="letter-spacing:.5em;font-size:22px;font-weight:800"></div>
       <div class="msg" id="rvMsg" style="text-align:center"></div>
       <button class="cta md" id="rvBtn" type="submit">שלחו לי קוד לאימות</button>
-      <p class="fine">הטלפון משמש רק לאימות ולא מתפרסם באתר.</p>
+      <p class="fine">השם הפרטי והביקורת יפורסמו באתר. הטלפון משמש רק לאימות ולא מתפרסם. <a href="#privacy" data-legal="priv">מדיניות הפרטיות</a></p>
     </form>
   </section>
 
   <div class="instbar" id="instBar" hidden role="dialog" aria-label="התקנה כאפליקציה">
     <div class="instrow"><img src="icon-192.png" alt="" width="56" height="56"><div><b>אריאל ספר כאפליקציה בטלפון</b><span>פותחים בנגיעה מהמסך, בלי לחפש את הקישור</span></div></div>
     <div class="instbtns"><button class="cta md" id="instYes" type="button">להוסיף (3 נגיעות)</button><button class="ghost" id="instNo" type="button">לא עכשיו</button></div>
+  </div>
+  <div class="instmodal legalmodal" id="legalModal" hidden role="dialog" aria-modal="true" aria-labelledby="legalTitle">
+    <div class="instcard legalcard" tabindex="-1" id="legalCard">
+      <div class="legalhead"><h2 id="legalTitle"></h2><button class="ghost" id="legalClose" type="button" aria-label="סגירה">✕</button></div>
+      <article id="legal-acc" class="legaltxt" hidden>
+        <p>אנו רואים חשיבות רבה במתן שירות שוויוני לכלל הלקוחות, כולל אנשים עם מוגבלות, ופועלים להנגשת האתר בהתאם לחוק שוויון זכויות לאנשים עם מוגבלות, התשנ״ח-1998, ולתקנות הנגישות לשירות (תשע״ג-2013).</p>
+        <h3>רמת הנגישות</h3>
+        <p>האתר הונגש בהתאם לתקן הישראלי ת״י 5568 המבוסס על הנחיות WCAG 2.0 ברמה AA, ונבדק בכלי בדיקה אוטומטיים ובבדיקה ידנית בדפדפנים Chrome ו-Safari, במחשב ובטלפון נייד.</p>
+        <h3>מה הונגש באתר</h3>
+        <ul><li>ניווט מלא במקלדת, עם סימון ברור של הרכיב המסומן וקישור ״דלג לתוכן הראשי״.</li><li>תאימות לקוראי מסך: כותרות, תוויות לשדות, תיאור לכפתורים ולתמונות, והודעות שמוקראות אוטומטית.</li><li>ניגודיות צבעים לפי התקן, וגופן שניתן להגדיל עד 200% בהגדרות הדפדפן בלי לאבד תוכן.</li><li>עצירת אנימציות אוטומטית למי שהגדיר ״הפחתת תנועה״ במכשיר.</li><li>התאמה מלאה לטלפון נייד, לרוחב ולאורך.</li></ul>
+        <h3>מגבלות ידועות</h3>
+        <p>ייתכן שחלקים מסוימים עדיין אינם נגישים במלואם. אם נתקלתם בקושי – נשמח שתעדכנו אותנו ונטפל בהקדם. ניתן תמיד לקבוע תור גם בטלפון או בוואטסאפ.</p>
+        <h3>רכז הנגישות ופרטי קשר</h3>
+        <p>אריאל · טלפון/וואטסאפ: <a href="tel:+972587110702" dir="ltr">058-711-0702</a> · כתובת: דגניה 27, חולון.<br>בפנייה, נשמח לקבל תיאור הבעיה, באיזה עמוד, ובאיזה דפדפן ומכשיר השתמשתם.</p>
+        <h3>נגישות המספרה</h3>
+        <p>לשאלות על הגעה ונגישות פיזית של המספרה – פנו אלינו לפני ההגעה ונשמח לעזור ולהתאים את השירות.</p>
+        <p class="legaldate">הצהרה זו עודכנה ביום 12.11.2026.</p>
+      </article>
+      <article id="legal-priv" class="legaltxt" hidden>
+        <p>מדיניות זו מסבירה איזה מידע נאסף באתר ״אריאל – ספר גברים״ (ariel.barbershops.company), למה, ומה הזכויות שלכם, בהתאם לחוק הגנת הפרטיות, התשמ״א-1981.</p>
+        <h3>איזה מידע נאסף</h3>
+        <ul><li>בקביעת תור: שם פרטי, מספר טלפון נייד, השירות, היום והשעה.</li><li>בכתיבת ביקורת: שם, טלפון (לאימות בלבד), הדירוג והטקסט.</li><li>הודעות וואטסאפ שאתם שולחים למספר האוטומטי של העסק.</li><li>במכשיר שלכם בלבד (אחסון מקומי בדפדפן, לא נשלח אלינו): רשימת התורים שקבעתם וההעדפות שלכם. האתר אינו משתמש בעוגיות פרסום או במעקב של צד שלישי.</li></ul>
+        <h3>למה המידע משמש</h3>
+        <ul><li>קביעת התור, אישור ותזכורת לפני התור, ואפשרות לבטל.</li><li>בקשה להשאיר ביקורת אחרי הביקור.</li><li>הודעות על תורים פנויים ועדכונים – <b>רק אם סימנתם שאתם מסכימים</b>. אפשר להסיר בכל רגע בהשבת ״הסר״.</li></ul>
+        <p>אינכם חייבים למסור את המידע לפי חוק, אך בלי מספר טלפון לא ניתן לאמת ולקבוע תור באתר.</p>
+        <h3>מי רואה את המידע</h3>
+        <p>בעל העסק (אריאל) ומפעיל המערכת הטכנית (BarberShops), לצורך הפעלת השירות בלבד. ההודעות נשלחות דרך וואטסאפ, והנתונים נשמרים מוצפנים בשרת אחסון חיצוני. המידע אינו נמכר ואינו מועבר לאף גורם אחר לצורכי פרסום.</p>
+        <h3>שמירה ואבטחה</h3>
+        <p>הנתונים נשמרים בהצפנה ונגישים רק בסיסמה. ביקורות מתפרסמות עם השם הפרטי בלבד. נשמור את המידע כל עוד אתם לקוחות, ונמחק אותו לפי בקשה.</p>
+        <h3>הזכויות שלכם</h3>
+        <p>מותר לכם לעיין במידע עליכם, לבקש לתקן אותו או למחוק אותו, ולבקש להפסיק לקבל הודעות. פנו בוואטסאפ או בטלפון <a href="tel:+972587110702" dir="ltr">058-711-0702</a> ונטפל בהקדם.</p>
+        <p class="legaldate">עודכן ביום 12.11.2026.</p>
+      </article>
+      <article id="legal-terms" class="legaltxt" hidden>
+        <p>השימוש באתר ובשירות קביעת התורים של ״אריאל – ספר גברים״, דגניה 27, חולון, כפוף לתנאים הבאים.</p>
+        <h3>קביעת תור</h3>
+        <ul><li>התור נקבע אחרי אימות מספר הטלפון בקוד שנשלח בוואטסאפ, ומאושר בהודעה.</li><li>היומן נפתח לשבועיים קדימה, כפי שמופיע באתר.</li><li>המחירים באתר כוללים מע״מ (אם חל) ומשולמים במספרה. אין תשלום באתר.</li></ul>
+        <h3>ביטול ושינוי</h3>
+        <ul><li>אפשר לבטל עד שעה לפני התור: באתר ב״התורים שלי״, או בהשבת ״ביטול״ להודעה בוואטסאפ.</li><li>במקרה של איחור משמעותי ייתכן שלא נוכל לקבל אתכם, כדי לא לפגוע בלקוח הבא.</li><li>העסק רשאי לבטל או להזיז תור במקרה חירום, ויעדכן אתכם בהקדם.</li></ul>
+        <h3>ביקורות</h3>
+        <p>ביקורת מתפרסמת עם השם הפרטי בלבד. נשמח לכל ביקורת כנה; ביקורת פוגענית, לא חוקית או שאינה קשורה לשירות עשויה להיות מוסרת.</p>
+        <h3>כללי</h3>
+        <p>אנו עושים מאמץ שהאתר יפעל ברציפות ובלי טעויות, אך ייתכנו תקלות. על התנאים חל הדין הישראלי. לכל שאלה: <a href="tel:+972587110702" dir="ltr">058-711-0702</a>.</p>
+        <p class="legaldate">עודכן ביום 12.11.2026.</p>
+      </article>
+    </div>
   </div>
   <div class="instmodal" id="findModal" hidden role="dialog" aria-modal="true" aria-labelledby="findTitle">
     <form class="instcard" id="findForm" novalidate>
@@ -588,17 +656,20 @@ body.adm .wa-fab{display:none}
     </div>
   </div>
 
+</main>
   <footer>
     <div id="footBiz">אריאל · ספר גברים · חולון</div>
+    <address class="footaddr">דגניה 27, חולון · <a href="tel:+972587110702" dir="ltr">058-711-0702</a></address>
+    <nav class="legal" aria-label="מידע משפטי"><a href="#accessibility" data-legal="acc">הצהרת נגישות</a><span aria-hidden="true">·</span><a href="#privacy" data-legal="priv">מדיניות פרטיות</a><span aria-hidden="true">·</span><a href="#terms" data-legal="terms">תקנון</a></nav>
     <button class="ownerlink" id="ownerLink" type="button">כניסת מנהל</button>
     <a class="bs-sign" href="https://barbershops.company/?from=ariel#contact" target="_blank" rel="noopener">נבנה ע״י <span class="bs-mark" dir="ltr"><svg viewBox="0 0 64 210" width="6" height="18" aria-hidden="true"><rect x="3" y="10" width="58" height="30" rx="8" fill="#d0a858"/><rect x="10" y="40" width="44" height="140" fill="#f6efe2"/><path d="M10 92 L54 60 L54 82 L10 114 Z M10 150 L54 118 L54 140 L10 172 Z" fill="#c2452f"/><path d="M10 64 L54 40 L54 52 L10 76 Z M10 122 L54 90 L54 102 L10 134 Z" fill="#2f5aa0"/><rect x="3" y="180" width="58" height="30" rx="8" fill="#d0a858"/></svg>BarberShops</span></a>
   </footer>
 </div>
 
-<a class="wa-fab" id="waFab" href="https://wa.me/972587110702" target="_blank" rel="noopener" aria-label="שלחו הודעה בוואטסאפ לאריאל">
+<aside aria-label="יצירת קשר בוואטסאפ"><a class="wa-fab" id="waFab" href="https://wa.me/972587110702" target="_blank" rel="noopener" aria-label="שלחו הודעה בוואטסאפ לאריאל">
   <span class="pulse" aria-hidden="true"></span>
   <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3a13 13 0 0 0-11.2 19.6L3 29l6.6-1.7A13 13 0 1 0 16 3zm0 23.7c-2 0-4-.5-5.7-1.6l-.4-.2-3.9 1 1-3.8-.3-.4A10.7 10.7 0 1 1 16 26.7zm5.9-8c-.3-.2-1.9-.9-2.2-1-.3-.1-.5-.2-.7.2l-1 1.2c-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-1-.9-1.6-1.9-1.8-2.2-.2-.3 0-.5.1-.7l.5-.6.3-.5c.1-.2 0-.4 0-.6l-1-2.4c-.3-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.2 1.1-1.2 2.8s1.2 3.2 1.4 3.5c.2.2 2.4 3.6 5.7 5 .8.4 1.4.6 1.9.7.8.3 1.5.2 2.1.1.6-.1 1.9-.8 2.2-1.5.3-.7.3-1.4.2-1.5-.1-.2-.3-.3-.6-.4z"/></svg>
-</a>
+</a></aside>
 
 <div class="admin" id="admin" hidden role="dialog" aria-label="ניהול יומן">
   <div class="wrap">
@@ -858,6 +929,18 @@ $("mineList").addEventListener("click",function(e){
   }).catch(function(){b.disabled=false;b.textContent="אין חיבור לשירות כרגע. נסו שוב או כתבו ל"+cfg.biz.name});
 });
 
+/* ---- legal pages (accessibility statement, privacy, terms) ---- */
+var LEGAL_T={acc:"הצהרת נגישות",priv:"מדיניות פרטיות",terms:"תקנון שימוש"},LEGAL_H={accessibility:"acc",privacy:"priv",terms:"terms"},legalBack=null;
+function legalOpen(k){if(!LEGAL_T[k])return;legalBack=document.activeElement;$("legalTitle").textContent=LEGAL_T[k];
+  ["acc","priv","terms"].forEach(function(x){$("legal-"+x).hidden=x!==k});$("legalModal").hidden=false;setTimeout(function(){try{$("legalClose").focus()}catch(_){}},30)}
+function legalClose(){$("legalModal").hidden=true;if(/^#(accessibility|privacy|terms)$/.test(location.hash))try{history.replaceState(null,"",location.pathname+location.search)}catch(_){}
+  try{legalBack&&legalBack.focus()}catch(_){}}
+document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("[data-legal]");if(!a)return;e.preventDefault();legalOpen(a.getAttribute("data-legal"))});
+$("legalClose").addEventListener("click",legalClose);
+$("legalModal").addEventListener("click",function(e){if(e.target===this)legalClose()});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!$("legalModal").hidden)legalClose()});
+(function(){var h=(location.hash||"").slice(1);if(LEGAL_H[h])setTimeout(function(){legalOpen(LEGAL_H[h])},300)})();
+
 /* ---- where the visitor came from (?from=ig in the Instagram bio), kept 30 days ---- */
 var REF_KEY="arielFrom";
 (function(){try{var f=new URLSearchParams(location.search).get("from");if(f&&/^[a-z0-9_-]{1,20}$/i.test(f)){localStorage.setItem(REF_KEY,JSON.stringify({v:f.toLowerCase(),t:Date.now()}));
@@ -1057,8 +1140,9 @@ function checkBot(){
 function setBookUi(){
   $("otpWrap").hidden=!(botOn&&otpSent);
   var inbox=!botOn&&!!cfg.inboxUrl;
-  if(inbox){$("fineTxt").textContent="התור נשמר מיד ביומן של "+cfg.biz.name+", ותקבל אישור בוואטסאפ.";$("toConfirm").textContent="קביעת התור";formChanged();return}
-  $("fineTxt").innerHTML=botOn?"נשלח אליך קוד בוואטסאפ כדי לוודא שהמספר שלך. אחרי האישור התור נקבע מיד, ותקבל אישור ותזכורת.":"הבקשה נשלחת מהוואטסאפ שלך, כך <span class=\"bizname\">"+esc(cfg.biz.name)+"</span> רואה שהמספר אמיתי. התור נסגר רק אחרי שהוא מאשר לך בחזרה.";
+  var LG=" <a href=\"#privacy\" data-legal=\"priv\">מדיניות הפרטיות</a> · <a href=\"#terms\" data-legal=\"terms\">תקנון</a>";
+  if(inbox){$("fineTxt").innerHTML="התור נשמר מיד ביומן של "+esc(cfg.biz.name)+", ותקבל אישור בוואטסאפ."+LG;$("toConfirm").textContent="קביעת התור";formChanged();return}
+  $("fineTxt").innerHTML=botOn?"נשלח אליך קוד בוואטסאפ כדי לוודא שהמספר שלך. אחרי האישור התור נקבע מיד, ותקבל אישור ותזכורת."+LG:"הבקשה נשלחת מהוואטסאפ שלך, כך <span class=\"bizname\">"+esc(cfg.biz.name)+"</span> רואה שהמספר אמיתי. התור נסגר רק אחרי שהוא מאשר לך בחזרה."+LG;
   $("toConfirm").textContent=botOn?(otpSent?"אישור וקביעת התור":"שלחו לי קוד בוואטסאפ"):"שליחת בקשה לתור";
   formChanged();
 }
@@ -1084,7 +1168,7 @@ function sendOtp(){
 $("resendBtn").addEventListener("click",function(){if(!botBusy)sendOtp()});
 function bookNow(){
   botBusy=true;formChanged();bookMsg("קובע את התור…",true);
-  botCall("/book",{phone:sel.phone,code:$("fcode").value.trim(),name:sel.name.trim(),day:sel.day,time:sel.time,svc:sel.svc,src:refGet()}).then(function(j){
+  botCall("/book",{phone:sel.phone,code:$("fcode").value.trim(),name:sel.name.trim(),day:sel.day,time:sel.time,svc:sel.svc,src:refGet(),mk:!!$("fmk").checked}).then(function(j){
     botBusy=false;
     if(j.ok){bookMsg("");lastBook={id:j.id,ctok:j.ctok};cfg.busy.push({d:sel.day,s:sel.time,m:(svcById(sel.svc)||{}).dur||30});showDone(true);return}
     var e=j.error;
