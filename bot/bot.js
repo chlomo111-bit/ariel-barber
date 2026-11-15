@@ -109,6 +109,8 @@ async function readConfig() { const t = await ghGet("config.json"); return t ? J
 async function writeConfig(o, msg) { await ghPut("config.json", JSON.stringify(o), msg); }
 /* data.enc.json v2: {v:2, keys:{user: password-wrapped data key}, iv, ct} — same as the site */
 let dataKey = null, dataKeyRaw = null, keysMap = null, fileVersion = 2;
+let storeCache = null, storeCacheAt = 0;
+async function readStoreCached() { if (!storeCache || Date.now() - storeCacheAt > 120e3) { storeCache = await readStore(); storeCacheAt = Date.now(); } return storeCache; }
 async function readStore() {
   const t = await ghGet("data.enc.json");
   if (!t) throw new Error("אין עדיין נתונים. היכנס פעם אחת לניהול באתר לפני הפעלת הבוט.");
@@ -248,7 +250,49 @@ function remember(r) {
   }
   return r;
 }
-async function waSend(jid, content) { return remember(await sock.sendMessage(jid, content)); }
+async function waSend(jid, content) { const r = remember(await sock.sendMessage(jid, content)); if (r && r.key && content && content.text) chatAdd(jid, "", { id: r.key.id, me: 1, text: content.text, st: 1 }); return r; }
+/* ---------- live chat for the admin: conversations of the bot number, kept on this Mac only (never pushed to GitHub) ---------- */
+const CHAT_FILE = path.join(__dirname, "chats.json");
+let CHATS = {}; try { CHATS = JSON.parse(fs.readFileSync(CHAT_FILE, "utf8")) || {}; } catch (_) {}
+let chatSaveT = null;
+function chatSave() { clearTimeout(chatSaveT); chatSaveT = setTimeout(() => { try { fs.writeFileSync(CHAT_FILE, JSON.stringify(CHATS)); } catch (_) {} }, 1500); }
+const phoneOfJid = j => (j && j.endsWith("@s.whatsapp.net")) ? "0" + j.split("@")[0].replace(/^972/, "") : "";
+function chatKeyOf(jid, pnJid) {
+  const ph = phoneOfJid(pnJid) || phoneOfJid(jid);
+  if (ph) { const lidKey = Object.keys(CHATS).find(k => CHATS[k].lid === jid && k !== ph); if (lidKey) { const o = CHATS[lidKey]; delete CHATS[lidKey]; CHATS[ph] = Object.assign(o, CHATS[ph] || {}, { msgs: [...(o.msgs || []), ...((CHATS[ph] && CHATS[ph].msgs) || [])].sort((a, b) => a.t - b.t) }); } return ph; }
+  const byLid = Object.keys(CHATS).find(k => CHATS[k].lid === jid); return byLid || jid;
+}
+function chatAdd(jid, pnJid, m) {
+  if (!jid || jid.endsWith("@g.us") || jid === "status@broadcast") return;
+  const k = chatKeyOf(jid, pnJid), c = CHATS[k] || (CHATS[k] = { msgs: [], unread: 0 });
+  if (jid.endsWith("@lid")) c.lid = jid; else c.jid = jid;
+  if (pnJid && pnJid.endsWith("@s.whatsapp.net")) c.jid = pnJid;
+  if (m.name && !m.me) c.name = m.name;
+  if (m.id && c.msgs.some(x => x.id === m.id)) return;
+  c.msgs.push({ id: m.id || "", t: m.t || Date.now(), me: m.me ? 1 : 0, text: String(m.text || "").slice(0, 4000), st: m.st || 0 });
+  if (c.msgs.length > 300) c.msgs = c.msgs.slice(-300);
+  if (!m.me) c.unread = (c.unread || 0) + 1;
+  c.t = Date.now();
+  const keys = Object.keys(CHATS); if (keys.length > 400) { keys.sort((a, b) => (CHATS[a].t || 0) - (CHATS[b].t || 0)); delete CHATS[keys[0]]; }
+  chatSave();
+}
+function chatStatus(id, st) { for (const k in CHATS) { const m = CHATS[k].msgs.find(x => x.id === id); if (m) { if (st > (m.st || 0)) { m.st = st; chatSave(); } return; } } }
+function msgText(msg) {
+  if (!msg) return "";
+  const x = msg.ephemeralMessage ? msg.ephemeralMessage.message : msg.viewOnceMessage ? msg.viewOnceMessage.message : msg;
+  if (!x) return "";
+  if (x.conversation) return x.conversation;
+  if (x.extendedTextMessage) return x.extendedTextMessage.text || "";
+  if (x.imageMessage) return "📷 תמונה" + (x.imageMessage.caption ? ": " + x.imageMessage.caption : "");
+  if (x.videoMessage) return "🎬 סרטון" + (x.videoMessage.caption ? ": " + x.videoMessage.caption : "");
+  if (x.audioMessage) return "🎤 הודעה קולית";
+  if (x.stickerMessage) return "סטיקר";
+  if (x.documentMessage) return "📄 קובץ" + (x.documentMessage.fileName ? ": " + x.documentMessage.fileName : "");
+  if (x.locationMessage) return "📍 מיקום";
+  if (x.contactMessage) return "👤 איש קשר";
+  if (x.buttonsResponseMessage) return x.buttonsResponseMessage.selectedDisplayText || "";
+  return "";
+}
 const retryCounter = new Map();
 const msgRetryCounterCache = { get: k => retryCounter.get(k), set: (k, v) => { retryCounter.set(k, v); if (retryCounter.size > 5000) retryCounter.delete(retryCounter.keys().next().value); return true; }, del: k => retryCounter.delete(k), flushAll: () => retryCounter.clear() };
 let sock = null, waState = "starting", lastQr = null, me = null, pairCode = null, pairAsked = false;
@@ -265,7 +309,8 @@ async function startWA() {
   });
   sock.ev.on("creds.update", saveCreds);
   sock.ev.on("messages.update", ups => { for (const u of ups) { const v = u.key && u.key.fromMe && DLV.get(u.key.id), st = u.update && u.update.status;
-    if (v && typeof st === "number" && st > v.st) { v.st = st; dlvDirty = true; } } });
+    if (v && typeof st === "number" && st > v.st) { v.st = st; dlvDirty = true; }
+    if (u.key && u.key.fromMe && typeof st === "number") chatStatus(u.key.id, st); } });
   sock.ev.on("connection.update", u => {
     if (u.qr) {
       lastQr = u.qr; waState = "qr";
@@ -294,6 +339,18 @@ async function startWA() {
     }
   });
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
+    for (const m of messages) {
+      try {
+        const cj = m.key.remoteJid || "";
+        if (cj && !cj.endsWith("@g.us") && cj !== "status@broadcast" && !(m.message && (m.message.protocolMessage || m.message.reactionMessage))) {
+          const cpn = cj.endsWith("@s.whatsapp.net") ? cj : (m.key.senderPn || m.key.remoteJidAlt || m.key.participantPn || "");
+          const t = (+m.messageTimestamp || 0) * 1000 || Date.now();
+          if (m.key.fromMe) { if (m.message && !SENT.has(m.key.id)) { const tx = msgText(m.message); if (tx) chatAdd(cj, cpn, { id: m.key.id, me: 1, text: tx, t, st: 2 }); } }
+          else if (m.message) { const tx = msgText(m.message); if (tx) chatAdd(cj, cpn, { id: m.key.id, text: tx, t, name: m.pushName || "" }); }
+          else if (m.messageStubType) chatAdd(cj, cpn, { id: m.key.id, text: "⚠️ הודעה שלא הצלחנו לקרוא (בקשו מהלקוח לשלוח שוב)", t, name: m.pushName || "" });
+        }
+      } catch (e) { log("error", "שמירת צ'אט: " + e.message); }
+    }
     if (type !== "notify") return;
     for (const m of messages) {
       try {
@@ -709,6 +766,25 @@ const server = http.createServer(async (req, res) => {
         if (!phoneOk(b.phone) || !text) return send(res, 400, { error: "bad" });
         try { await sendWA(b.phone, text); log("send", "הודעה נשלחה ל-" + pLocal(b.phone)); return send(res, 200, { ok: true }); }
         catch (e) { return send(res, 503, { error: e.code || e.message }); }
+      }
+      if (p === "/admin/chats") {
+        let names = {}; try { const d = await readStoreCached(); for (const v of Object.values(d)) if (v && v.kind === "client" && v.phone) names[pLocal(v.phone)] = v.name; } catch (_) {}
+        const list = Object.entries(CHATS).map(([k, c]) => { const l = c.msgs[c.msgs.length - 1] || {}; const phone = /^05\d{8}$/.test(k) ? k : ""; return { k, phone, name: names[phone] || c.name || "", last: l.text || "", me: l.me || 0, t: l.t || c.t || 0, unread: c.unread || 0 }; })
+          .sort((a, b) => b.t - a.t).slice(0, 200);
+        return send(res, 200, { ok: true, wa: waState, list });
+      }
+      if (p === "/admin/chat") {
+        const k = url.searchParams.get("k") || "", c = CHATS[k];
+        if (!c) return send(res, 404, { error: "nochat" });
+        if (url.searchParams.get("read") === "1" && c.unread) { c.unread = 0; chatSave(); }
+        return send(res, 200, { ok: true, wa: waState, k, name: c.name || "", msgs: c.msgs.slice(-150) });
+      }
+      if (p === "/admin/reply" && req.method === "POST") {
+        const b = await body(req), text = String(b.text || "").trim().slice(0, 3000), c = CHATS[b.k];
+        if (!c || !text) return send(res, 400, { error: "bad" });
+        if (waState !== "open") return send(res, 503, { error: "offline" });
+        try { await waSend(c.jid || c.lid || b.k, { text }); c.unread = 0; chatSave(); log("chat", "תשובה נשלחה מהצ'אט ל-" + (/^05/.test(b.k) ? b.k : (c.name || "לקוח"))); return send(res, 200, { ok: true }); }
+        catch (e) { return send(res, 503, { error: e.message }); }
       }
       if (p === "/admin/logout" && req.method === "POST") {
         try { await sock.logout(); } catch (_) {}

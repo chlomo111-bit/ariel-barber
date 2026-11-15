@@ -207,6 +207,21 @@ footer{text-align:center;padding-top:28px;display:grid;gap:6px;justify-items:cen
 .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:14px}
 .tabs button{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 16px;cursor:pointer;font-weight:700;min-height:44px}
 .tabs button[aria-selected="true"]{border-color:var(--gold);color:var(--gold-lt);background:var(--surface-2)}
+.chl{display:flex;flex-direction:column;gap:2px}
+.chi{display:flex;gap:10px;align-items:center;width:100%;text-align:right;background:transparent;border:0;border-bottom:1px solid var(--line);color:var(--text);padding:12px 4px;cursor:pointer;font:inherit;min-height:60px}
+.chi:hover{background:var(--surface-2)}
+.chav{flex:0 0 42px;height:42px;border-radius:50%;background:var(--surface-2);border:1px solid var(--gold-dk);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--gold-lt)}
+.chm{flex:1;min-width:0}.chn{font-weight:700;display:flex;gap:8px;align-items:baseline}.chn small{margin-inline-start:auto;color:var(--muted);font-weight:400;font-size:12px}
+.chp{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chu{background:var(--gold);color:#1c160a;border-radius:999px;font-size:12px;font-weight:800;padding:1px 8px;margin-inline-start:6px}
+.chhd{display:flex;align-items:center;gap:8px;margin-bottom:8px}.chhd .chn{flex:1;flex-direction:column;gap:0}.chhd .who{font-size:13px}
+.chth{height:min(58vh,520px);overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:10px;background:#0f0d09;border:1px solid var(--line);border-radius:12px}
+.bb{max-width:80%;padding:8px 12px;border-radius:14px;white-space:pre-wrap;word-wrap:break-word;font-size:15px;line-height:1.45}
+.bb.in{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-start-start-radius:4px}
+.bb.out{align-self:flex-end;background:#2c2412;border:1px solid var(--gold-dk);border-start-end-radius:4px}
+.bb i{display:block;font-style:normal;font-size:11px;color:var(--muted);margin-top:2px;text-align:left;direction:ltr}.bb i b{color:#6fb4ff;font-weight:400}
+.chday{align-self:center;font-size:12px;color:var(--muted);background:var(--surface);border-radius:999px;padding:2px 10px;margin:6px 0}
+.chcomp{display:flex;gap:8px;margin-top:8px;align-items:flex-end}.chcomp textarea{flex:1;min-height:46px;max-height:140px;resize:none;border-radius:14px;padding:10px 12px;background:var(--surface);color:var(--text);border:1px solid var(--line);font:inherit}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:12px}
 .card h3{margin:0 0 12px;font-size:18px;color:var(--gold-lt)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
@@ -678,6 +693,7 @@ body.adm .wa-fab{display:none}
       <button role="tab" data-t="biz" type="button">עסק</button>
       <button role="tab" data-t="cal" type="button">יומן</button>
       <button role="tab" data-t="cli" type="button">לקוחות</button>
+      <button role="tab" data-t="chat" type="button" id="tabChat">צ'אט</button>
       <button role="tab" data-t="wa" type="button">וואטסאפ</button>
       <button role="tab" data-t="hours" type="button">שעות</button>
       <button role="tab" data-t="vac" type="button">חופשות</button>
@@ -1436,6 +1452,7 @@ function closeAdmin(){$("admin").hidden=true;$("pubbar").hidden=true;document.bo
 $("ownerLink").addEventListener("click",function(){if(ghToken)openAdmin("cal");else showLogin()});
 $("admClose").addEventListener("click",closeAdmin);
 $("tabs").addEventListener("click",function(e){var b=e.target.closest("button[data-t]");if(!b)return;curTab=b.dataset.t;ssSet(curTab);armed=null;renderTabs();renderTab();
+  clearInterval(chatPoll);if(curTab==="chat"){chatK=null;chatPoll=setInterval(function(){if(curTab==="chat"&&!$("admin").hidden&&!document.hidden)chatRefresh();else if(curTab!=="chat")clearInterval(chatPoll)},4000)}
   clearInterval(botPoll);if(curTab==="wa"){refreshBot();botPoll=setInterval(function(){if(curTab==="wa"&&!$("admin").hidden)refreshBot();else clearInterval(botPoll)},5000)}});
 function renderTabs(){[].forEach.call($("tabs").children,function(b){b.setAttribute("aria-selected",String(b.dataset.t===curTab))})}
 function markDirty(){dirty=true;setStatus()}
@@ -1474,6 +1491,7 @@ function renderTab(){
     h+='<p class="who">שמות וטלפונים נשמרים רק בשטח הפרטי שלך. ללקוחות מתפרסמות רק השעות התפוסות.</p></div>';
   }
   else if(curTab==="cli"){h+=cliHtml()}
+  else if(curTab==="chat"){h+='<div id="chatBox"></div>'}
   else if(curTab==="wa"){h+=waHtml()}
   else if(curTab==="biz"){h+=bizHtml()}
   else if(curTab==="hours"){
@@ -1531,11 +1549,56 @@ function renderTab(){
       '<div class="field"><label for="gLead">הזמנה מינימלית מראש (דקות)</label><input id="gLead" type="number" min="0" step="15" data-g="lead" data-num="1" value="'+esc(g.lead)+'"></div></div></div>';
   }
   b.innerHTML=h;
+  if(curTab==="chat")chatInit();
   if(curTab==="gen")waCheck();
   if(curTab==="cal"){$("pasteBox").value=pasteVal;$("histPhone").value=histVal;renderHist()}
 }
 var BOT_DEF={otp:"הקוד שלך לקביעת תור אצל {biz}: *{code}*\nהקוד בתוקף ל-10 דקות.",confirm:"היי {name} ✂️ התור שלך אצל {biz} נקבע!\n🗓 {date} בשעה {time}\n💈 {service}\n📍 {area}\n\n📅 הוספה ליומן: {cal}\n\nלא מסתדר לך? השיבו *ביטול* ונפנה את המקום למישהו אחר 🙏",cancelOk:"התור שלך ב{date} בשעה {time} בוטל ✅\nתודה שעדכנת! מתי שתרצה תור חדש: {site}",adminCancel:"❌ תור בוטל{by}\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancelMinBefore:60,winback:true,winbackDays:14,winbackMaxPerDay:10,reviewAsk:true,reviewAskMin:30,reminder:"היי {name}, עוד שעה נתראה 💈\nהיום בשעה {time} אצל {biz}\n📍 {area}",adminNew:"📅 תור חדש נקבע\n{name} · {phone}\n{service}\n{date} בשעה {time}",cancel:"היי {name}, מצטערים 🙏 התור שלך ב{date} בשעה {time} בוטל.\nאפשר לקבוע תור חדש כאן: {site}",autoReply:"היי! 💈 זה המספר האוטומטי של {biz} לאישורים ותזכורות.\n✂️ לקביעת תור (30 שניות): {site}\n💬 לשאלות כתבו ל{biz}: {adminPhone}",reminderMin:60,notifyAdmin:true,sendConfirm:true,sendReminder:true,maxFuturePerPhone:2};
 var botStat=null,botKey=null,botPoll=null,qrLib=null;
+
+/* ---- live WhatsApp chat of the bot number (the conversations stay on the bot's computer) ---- */
+var chatK=null,chatPoll=null,chatList=[],chatBusy=false,chatLastSig="";
+function chTime(t){var d=new Date(t),n=new Date();var hm=pad(d.getHours())+":"+pad(d.getMinutes());return ymd(d)===ymd(n)?hm:d.getDate()+"."+(d.getMonth()+1)+" "+hm}
+function chDay(t){var d=new Date(t),n=new Date(),y=new Date();y.setDate(n.getDate()-1);if(ymd(d)===ymd(n))return "היום";if(ymd(d)===ymd(y))return "אתמול";return "יום "+["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"][d.getDay()]+" "+d.getDate()+"."+(d.getMonth()+1)}
+function chTick(st){return st>=4?"<b>✓✓</b>":st>=3?"✓✓":st>=1?"✓":""}
+function chLabel(c){return c.name||(c.phone||"לקוח")}
+function chatBadge(n){var b=$("tabChat");if(b)b.textContent="צ'אט"+(n?" ("+n+")":"")}
+function chatInit(){
+  var box=$("chatBox");if(!box)return;
+  if(!chatK){box.innerHTML='<div class="card"><h3>שיחות וואטסאפ</h3><p class="who">ההודעות שנכנסות למספר הבוט, בזמן אמת. לחצו על שיחה כדי לענות.</p><div class="chl" id="chList"><p class="who">טוען…</p></div></div>'}
+  else{var c=chatList.find(function(x){return x.k===chatK})||{k:chatK};
+    box.innerHTML='<div class="card"><div class="chhd"><button class="btn" type="button" data-a="chback" aria-label="חזרה לשיחות">→</button><div class="chn"><span>'+esc(chLabel(c))+'</span>'+(c.phone&&c.name?'<span class="who" dir="ltr">'+esc(c.phone)+'</span>':'')+'</div>'+(c.phone?'<a class="btn" href="tel:'+esc(c.phone)+'" aria-label="התקשרות">📞</a>':'')+'</div>'+
+    '<div class="chth" id="chThread" aria-live="polite"><p class="who">טוען…</p></div>'+
+    '<div class="chcomp"><label for="chIn" class="sr">הודעה</label><textarea id="chIn" rows="1" placeholder="כתבו הודעה…"></textarea><button class="btn primary" type="button" data-a="chsend">שליחה</button></div><div class="msg" id="chMsg"></div></div>'}
+  chatLastSig="";chatRefresh();
+}
+async function chatRefresh(){
+  if(chatBusy)return;chatBusy=true;
+  try{
+    if(!chatK){var j=await botAdmin("/admin/chats");chatList=j.list||[];var un=0;chatList.forEach(function(c){un+=c.unread||0});chatBadge(un);
+      var el=$("chList");if(!el)return;
+      if(!chatList.length){el.innerHTML='<p class="who">עדיין אין שיחות. כשמישהו יכתוב למספר הבוט, השיחה תופיע כאן.</p>';return}
+      el.innerHTML=chatList.map(function(c){var l=chLabel(c);return '<button class="chi" type="button" data-a="chopen" data-k="'+esc(c.k)+'"><span class="chav" aria-hidden="true">'+esc(l.charAt(0))+'</span><span class="chm"><span class="chn"><span>'+esc(l)+'</span>'+(c.unread?'<span class="chu">'+c.unread+'</span>':'')+'<small>'+chTime(c.t)+'</small></span><span class="chp">'+(c.me?"אתה: ":"")+esc(c.last)+'</span></span></button>'}).join("")}
+    else{var k=chatK,j2=await botAdmin("/admin/chat?read=1&k="+encodeURIComponent(k));if(k!==chatK)return;
+      var th=$("chThread");if(!th)return;var ms=j2.msgs||[],sig=ms.length+":"+(ms.length?ms[ms.length-1].id+ms[ms.length-1].st:"");if(sig===chatLastSig)return;chatLastSig=sig;
+      var nearEnd=th.scrollHeight-th.scrollTop-th.clientHeight<80||!th.dataset.done,h="",lastDay="";
+      ms.forEach(function(m){var d=chDay(m.t);if(d!==lastDay){h+='<div class="chday">'+d+'</div>';lastDay=d}
+        h+='<div class="bb '+(m.me?"out":"in")+'">'+esc(m.text)+'<i>'+(m.me?chTick(m.st)+" ":"")+chTime(m.t).split(" ").pop()+'</i></div>'});
+      th.innerHTML=h||'<p class="who">אין הודעות.</p>';th.dataset.done="1";if(nearEnd)th.scrollTop=th.scrollHeight}
+  }catch(e){var t=e.status===401?"הבוט פועל, אבל הסיסמה שלו שונה מסיסמת הניהול.":"הבוט לא מחובר כרגע. ודאו שהמחשב דלוק ושהבוט רץ.";var x=$(chatK?"chThread":"chList");if(x&&!x.dataset.done)x.innerHTML='<p class="msg bad">'+t+'</p>';else{var m=$("chMsg");if(m){m.textContent=t;m.className="msg bad"}}}
+  finally{chatBusy=false}
+}
+async function chatSend(){
+  var inp=$("chIn"),m=$("chMsg"),t=(inp&&inp.value||"").trim();if(!t||!chatK)return;
+  m.textContent="שולח…";m.className="msg";
+  try{await botAdmin("/admin/reply",{k:chatK,text:t});inp.value="";m.textContent="";chatLastSig="";await chatRefresh()}
+  catch(e){m.textContent=e.message==="offline"?"וואטסאפ של הבוט לא מחובר כרגע. ההודעה לא נשלחה.":"ההודעה לא נשלחה. נסו שוב.";m.className="msg bad"}
+}
+document.addEventListener("click",function(e){var b=e.target.closest("[data-a]");if(!b||curTab!=="chat")return;
+  if(b.dataset.a==="chopen"){chatK=b.dataset.k;chatInit()}
+  else if(b.dataset.a==="chback"){chatK=null;chatInit()}
+  else if(b.dataset.a==="chsend")chatSend()});
+document.addEventListener("keydown",function(e){if(e.target&&e.target.id==="chIn"&&e.key==="Enter"&&!e.shiftKey&&!e.isComposing&&window.matchMedia("(pointer:fine)").matches){e.preventDefault();chatSend()}});
 function botSettings(){draft.bot=Object.assign({},BOT_DEF,draft.bot||{});return draft.bot}
 async function getBotKey(){if(botKey)return botKey;var h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("ariel-bot:"+b64e(dekRaw)));botKey=Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,"0")}).join("");return botKey}
 async function botAdmin(path,data){
