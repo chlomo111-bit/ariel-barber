@@ -186,6 +186,21 @@ svg.i{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-widt
 .check circle{fill:none;stroke:var(--gold);stroke-width:3;stroke-dasharray:252;stroke-dashoffset:252;animation:draw .7s ease forwards}
 .check path{fill:none;stroke:var(--gold-lt);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:60;stroke-dashoffset:60;animation:draw .45s .6s ease forwards}
 @keyframes draw{to{stroke-dashoffset:0}}
+.dbadge{position:relative;width:200px;height:200px;margin:4px auto 0}
+.dring{position:absolute;inset:0;border-radius:50%;background:repeating-conic-gradient(var(--gold) 0 14deg,#f4ead2 14deg 22deg);animation:dspin 14s linear infinite;-webkit-mask:radial-gradient(circle,transparent 0 60%,#000 61%);mask:radial-gradient(circle,transparent 0 60%,#000 61%);box-shadow:0 0 40px rgba(201,164,92,.35)}
+.dbadge::before{content:"";position:absolute;inset:9px;border-radius:50%;border:3px solid var(--gold-dk)}
+.dlogo{position:absolute;inset:26%;width:48%;height:48%;border-radius:50%;object-fit:cover;box-shadow:0 0 0 3px var(--gold)}
+.dbadge .check{position:absolute;width:54px;height:54px;left:22%;bottom:16%;margin:0;background:#15120b;border-radius:50%}
+.dsc{position:absolute;width:86px;height:86px;top:-14px;right:-30px;fill:none;stroke:var(--gold-lt);stroke-width:1.8;stroke-linecap:round;transform:rotate(-20deg);animation:dsnip 1.6s ease-in-out .8s 2}
+@keyframes dspin{to{transform:rotate(360deg)}}
+@keyframes dsnip{0%,100%{transform:rotate(-20deg)}50%{transform:rotate(-34deg)}}
+.dsub{margin:-6px 0 0;color:var(--muted,#b9ad95);font-size:18px}
+.dok{display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid #3f7a46;background:#13241a;color:#e9f6ea;border-radius:16px;padding:14px;font-weight:700;font-size:16px}
+.dok .i{stroke:#e9f6ea;stroke-width:3}
+.dearly{border:1px solid var(--gold);background:linear-gradient(90deg,#3a2e15,#1f190d);border-radius:16px;padding:14px;font-weight:800;font-size:16px;text-align:center}
+.dhome{justify-content:space-between;padding-inline:14px}.dhome img{border-radius:10px}.dplus{font-size:22px;color:var(--gold)}
+.dnav{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (prefers-reduced-motion:reduce){.dring,.dsc{animation:none}}
 .note{border:1px solid var(--gold-dk);background:#1b160c;border-radius:14px;padding:12px 14px;font-size:15px;text-align:right}
 .ghost{width:100%;min-height:54px;border-radius:18px;border:1px solid var(--gold);background:transparent;color:var(--gold-lt);font-weight:700;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
 .wa{color:#1c160a}
@@ -554,9 +569,12 @@ body.adm .wa-fab{display:none}
 
   <!-- CONFIRM -->
   <section class="screen done" id="sDone" hidden aria-live="polite">
-    <svg class="check" viewBox="0 0 90 90" aria-hidden="true"><circle cx="45" cy="45" r="40"/><path d="M27 46 l12 12 l24 -26"/></svg>
+    <div class="dbadge" aria-hidden="true"><div class="dring"></div><img src="icon-512.png" alt="" class="dlogo"><svg class="check" viewBox="0 0 90 90"><circle cx="45" cy="45" r="40"/><path d="M27 46 l12 12 l24 -26"/></svg><svg class="dsc" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></div>
     <h2 id="doneTitle">הבקשה מוכנה</h2>
+    <p class="dsub" id="doneSub" hidden>מחכים לך!</p>
     <div class="ticket" id="ticket2" style="margin:0"></div>
+    <div class="dok" id="doneOk" hidden><svg class="i" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>שלחנו לך את האישור בוואטסאפ</div>
+    <div class="dearly" id="doneEarly" hidden>📣 נא להגיע 5 דקות לפני התור 🙏</div>
     <p class="note" id="doneNote">התור עוד לא נקבע. שלחו את הבקשה מהוואטסאפ של המספר שהזנתם. <span class="bizname">אריאל</span> יבדוק ויאשר לכם בחזרה בוואטסאפ, ורק אז התור סגור.</p>
     <a class="cta md wa" id="waBtn" href="#" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 24 24"><path d="M3 21l1.7-4.6A8.5 8.5 0 1 1 8 19.6z"/><path d="M9 9.5c.3 2 1.8 3.8 4 4.7l1.2-1.1 2 1-.4 1.6c-3.6.3-7.4-3.2-7.6-6.9l1.6-.4.9 2z"/></svg>שלח בוואטסאפ</a>
     <button class="ghost" id="copyBtn" type="button">העתק הודעה</button>
@@ -568,7 +586,12 @@ body.adm .wa-fab{display:none}
       <textarea id="copyText" class="copybox" readonly></textarea>
     </div>
     <p class="today" id="waPlainRow" style="margin:0">הוואטסאפ לא נפתח? שלחו את ההודעה למספר <b dir="ltr" id="waPlain"></b></p>
+    <button class="ghost" id="calBtn" type="button"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>הוסף ליומן</button>
+    <button class="ghost dhome" id="homeAddBtn" type="button"><img src="icon-192.png" alt="" width="34" height="34">הוספה למסך הבית<span class="dplus">⊞</span></button>
+    <p class="today" id="homeAddTip" style="margin:-4px 0 0">אחר כך פותחים מהאייקון החדש, ושם מפעילים תזכורות לטלפון.</p>
+    <div class="dnav"><a class="ghost" id="wazeBtn" href="#" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Waze</a><a class="ghost" id="gmapsBtn" href="#" target="_blank" rel="noopener"><svg class="i" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Google Maps</a></div>
     <button class="textlink" id="editBtn" type="button">חזרה לעריכה</button>
+    <button class="textlink" id="homeLink" type="button">לדף הבית</button>
     <a class="bs-line" href="https://barbershops.company/?from=ariel#contact" target="_blank" rel="noopener">בעל עסק? רוצה אפליקציה כזאת?</a>
   </section>
 
@@ -1223,14 +1246,21 @@ function showDone(auto){
   $("waPlain").textContent=cfg.wa;$("copyText").value=text;$("copyFallback").hidden=true;$("copyBtn").textContent="העתק הודעה";
   $("gcalBtn").href=calLink();$("icsBtn").hidden=false;
   var sv=svcById(sel.svc);mineAdd({day:sel.day,time:sel.time,svc:sv.name,total:total(),sent:Date.now(),ok:!!auto,id:auto&&lastBook?lastBook.id:null,ctok:auto&&lastBook?lastBook.ctok:null});lastBook=null;
-  $("doneTitle").textContent=auto?"התור נקבע ✓":"הבקשה מוכנה";
+  $("doneTitle").textContent=auto?"התור נקבע!":"הבקשה מוכנה";
   $("doneNote").textContent=auto==="saved"?"התור נשמר ביומן ✓ תקבל אישור בוואטסאפ בדקות הקרובות, ותזכורת לפני התור.":auto?"שלחנו לך אישור בוואטסאפ, ותקבל תזכורת לפני התור. נתראה!":"התור עוד לא נקבע. שלחו את הבקשה מהוואטסאפ של המספר שהזנתם. "+cfg.biz.name+" יבדוק ויאשר לכם בחזרה בוואטסאפ, ורק אז התור סגור.";
   $("waBtn").hidden=auto;$("copyBtn").hidden=auto;$("waPlainRow").hidden=auto;$("editBtn").hidden=auto;if(auto)$("copyFallback").hidden=true;
+  var q=encodeURIComponent(cfg.biz.area||"");$("wazeBtn").href="https://waze.com/ul?q="+q+"&navigate=yes";$("gmapsBtn").href="https://www.google.com/maps/search/?api=1&query="+q;
+  $("doneSub").hidden=!auto;$("doneOk").hidden=!auto||auto==="saved";$("doneEarly").hidden=!auto;$("doneNote").hidden=!!auto&&auto!=="saved";
+  $("gcalBtn").hidden=true;$("icsBtn").hidden=true;$("calBtn").textContent="";$("calBtn").innerHTML='<svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>הוסף ליומן';
+  var st=isStandalone();$("homeAddBtn").hidden=st;$("homeAddTip").hidden=st;
   if(auto){otpSent=false;$("fcode").value="";setBookUi()}
   var c=$("sDone").querySelector(".check"),n=c.cloneNode(true);c.parentNode.replaceChild(n,c);
   show("sDone",1);
 }
 $("editBtn").addEventListener("click",function(){show("sDet",-1)});
+$("calBtn").addEventListener("click",function(){var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);if(ios){$("icsBtn").click();this.textContent=$("icsBtn").textContent}else window.open($("gcalBtn").href,"_blank","noopener")});
+$("homeAddBtn").addEventListener("click",function(){$("instYes").click()});
+$("homeLink").addEventListener("click",function(){show("home",-1)});
 $("copyBtn").addEventListener("click",function(){
   var text=$("copyText").value,btn=this;
   function fallback(){$("copyFallback").hidden=false;var t=$("copyText");t.focus();t.select()}
