@@ -187,6 +187,7 @@ const DEFAULT_BOT = {
   openRemindHour: 20,
   openRemindText: "היי {biz} 👋\nמחר ({openDay}) ב־{openTime} נפתח היומן לשבועיים הבאים: {from}–{to}.\n\nיש שינויים בשעות או ימי חופש? הוסיפו אותם עכשיו, לפני שהלקוחות מתחילים לקבוע:\n{site}#admin",
   reviewNext: "\n\n✂️ רוצה כבר לשריין את התור הבא? {site}",
+  consentAsk: "\n\nרוצה שאזכיר לך כשמגיע הזמן לתספורת הבאה? השיבו *כן* 💈",
   reviewFooter: "\n\n📸 יצאת מרוצה? תייג אותי בסטורי @{ig}",
   reviewTexts: [
     "היי {first}, תודה שבאת היום ✂️ איך יצא? נשמח אם תשאיר ביקורת קצרה, זה לוקח 20 שניות 🙏\n{review}",
@@ -361,6 +362,7 @@ async function startWA() {
         const text = (m.message.conversation || (m.message.extendedTextMessage && m.message.extendedTextMessage.text) || "").trim();
         if (/^(ביטול|לבטל|בטל|בטלו|אני רוצה לבטל|cancel)(?=$|[\s.!?,])/i.test(text)) { await clientCancel(jid, pnJid); continue; }
         if (/^(הסר|הסירו|להסיר|הסרה|stop|תפסיקו|תפסיק)(?=$|[\s.!?,])/i.test(text)) { await clientOptOut(jid, pnJid); continue; }
+        if (/^(כן|בטח|אשמח|yes)(?=$|[\s.!?,]|\p{Extended_Pictographic})/iu.test(text) && await clientConsent(jid, pnJid)) continue;
         if (!pnJid && !jid.endsWith("@lid")) continue;
         const last = repliedAt.get(jid) || 0;
         if (Date.now() - last < 24 * 3600e3) continue; // answer each person at most once a day
@@ -398,9 +400,23 @@ async function reviewAskTick() {
       done.push(id);
     }
     if (done.length || skipped.length) await changeStore(d => { skipped.forEach(id => { if (d[id]) d[id].reviewAsked = true; }); done.forEach(id => { if (!d[id]) return; d[id].reviewAsked = true; const ck = "c" + pLocal(d[id].phone);
-      d[ck] = Object.assign({ kind: "client", phone: pLocal(d[id].phone) }, d[ck] || {}); d[ck].reviewAskedAt = Date.now(); d[ck].reviewAsks = (d[ck].reviewAsks || 0) + 1; }); return d; }, "review requests sent");
+      d[ck] = Object.assign({ kind: "client", phone: pLocal(d[id].phone) }, d[ck] || {}); d[ck].reviewAskedAt = Date.now(); if (!d[ck].marketingOk) d[ck].consentAskedAt = Date.now(); d[ck].reviewAsks = (d[ck].reviewAsks || 0) + 1; }); return d; }, "review requests sent");
   } catch (e) { log("error", "בקשות ביקורת: " + e.message); }
   finally { rvAskBusy = false; }
+}
+
+/* client replies "כן" to the consent question in the review request: allow come-back messages */
+async function clientConsent(jid, pnJid) {
+  const phone = pnJid ? "0" + pnJid.split("@")[0].replace(/^972/, "") : "";
+  if (!phoneOk(phone)) return false;
+  try {
+    const meta = (await readStore())["c" + phone] || {};
+    if (meta.marketingOk || meta.optOut || !meta.consentAskedAt || Date.now() - meta.consentAskedAt > 30 * 864e5) return false;
+    await changeStore(d => { d["c" + phone] = Object.assign({ kind: "client", phone }, d["c" + phone] || {}, { marketingOk: true, marketingAt: Date.now(), marketingVia: "whatsapp" }); return d; }, "client consent (whatsapp)");
+    await waSend(jid, { text: "מעולה 🙌 אזכיר לך כשיגיע הזמן לתספורת הבאה 💈\nלהסרה בכל רגע השיבו *הסר*" }).catch(() => {});
+    log("winback", phone + " אישר לקבל תזכורת לתספורת הבאה");
+    return true;
+  } catch (e) { log("error", "אישור הודעות נכשל: " + e.message); return false; }
 }
 
 /* client replies "הסר": no more come-back messages */
@@ -446,7 +462,7 @@ async function openRemindTick() {
 
 function reviewMsg(st, texts, a, first, mk = true) {
   const ig = String(CFG.igHandle || "").replace(/^@/, "").trim();
-  return fill(texts[randomInt(0, texts.length)] + (mk ? st.reviewNext || "" : "") + (ig && st.reviewFooter ? st.reviewFooter : ""), vars(a, { first, ig, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
+  return fill(texts[randomInt(0, texts.length)] + (mk ? st.reviewNext || "" : (st.consentAsk || DEFAULT_BOT.consentAsk)) + (ig && st.reviewFooter ? st.reviewFooter : ""), vars(a, { first, ig, review: siteUrl() + "#review" })).replace(/^\s*,\s*/, "").replace(/ {2,}/g, " ").replace(/ +(?=[,!])/g, "");
 }
 /* test: the review request (as clients get it) to each admin, requested by config.reviewTest */
 /* test: every message a client can receive, sent one by one (20 s apart) to the number in config.testAll */
