@@ -13,6 +13,7 @@ const path = require("node:path");
 const http = require("node:http");
 const { spawn } = require("node:child_process");
 const { webcrypto: wc, createHash, randomInt } = require("node:crypto");
+const zlib = require("node:zlib");
 const baileys = require("baileys");
 const makeWASocket = baileys.default;
 const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers, makeCacheableSignalKeyStore } = baileys;
@@ -258,7 +259,36 @@ async function waSend(jid, content) { const r = remember(await sock.sendMessage(
 const CHAT_FILE = path.join(__dirname, "chats.json");
 let CHATS = {}; try { CHATS = JSON.parse(fs.readFileSync(CHAT_FILE, "utf8")) || {}; } catch (_) {}
 let chatSaveT = null;
-function chatSave() { clearTimeout(chatSaveT); chatSaveT = setTimeout(() => { try { fs.writeFileSync(CHAT_FILE, JSON.stringify(CHATS)); } catch (_) {} }, 1500); }
+let chatDirty = false, chatBackupAt = 0, chatRestored = false;
+function chatSave() { chatDirty = true; clearTimeout(chatSaveT); chatSaveT = setTimeout(() => { try { fs.writeFileSync(CHAT_FILE, JSON.stringify(CHATS)); } catch (_) {} }, 1500); }
+/* backup of the chat history to GitHub (chats.enc.json): gzip + AES-GCM with the same data key as the appointments.
+   Every 6 h if something changed. On a new machine with no chats.json, the history is restored from it. */
+const CHAT_BAK = "chats.enc.json";
+async function chatBackupTick(force) {
+  try {
+    if (!dataKey) await readStore();
+    if (!dataKey) return;
+    if (!chatRestored) {
+      chatRestored = true;
+      if (!Object.keys(CHATS).length) {
+        const t = await ghGet(CHAT_BAK);
+        if (t) {
+          const o = JSON.parse(t), pt = await wc.subtle.decrypt({ name: "AES-GCM", iv: b64d(o.iv) }, dataKey, b64d(o.ct));
+          CHATS = JSON.parse(zlib.gunzipSync(Buffer.from(pt)).toString("utf8")) || {}; chatSave(); chatDirty = false; chatBackupAt = Date.now();
+          log("chat", "היסטוריית הצ'אט שוחזרה מהגיבוי (" + Object.keys(CHATS).length + " שיחות)"); return;
+        }
+      }
+    }
+    if (!force && (!chatDirty || Date.now() - chatBackupAt < 6 * 3600e3)) return;
+    if (!Object.keys(CHATS).length) return;
+    const iv = wc.getRandomValues(new Uint8Array(12));
+    const ct = await wc.subtle.encrypt({ name: "AES-GCM", iv }, dataKey, zlib.gzipSync(Buffer.from(JSON.stringify(CHATS))));
+    if (!shas[CHAT_BAK]) await ghGet(CHAT_BAK).catch(() => null);
+    await ghPut(CHAT_BAK, JSON.stringify({ v: 1, iv: b64e(iv), ct: b64e(new Uint8Array(ct)) }), "chat backup");
+    chatDirty = false; chatBackupAt = Date.now();
+    log("chat", "גיבוי היסטוריית הצ'אט נשמר (" + Object.keys(CHATS).length + " שיחות)");
+  } catch (e) { log("error", "גיבוי צ'אט: " + e.message); }
+}
 const phoneOfJid = j => (j && j.endsWith("@s.whatsapp.net")) ? "0" + j.split("@")[0].replace(/^972/, "") : "";
 function chatKeyOf(jid, pnJid) {
   const ph = phoneOfJid(pnJid) || phoneOfJid(jid);
@@ -1006,6 +1036,7 @@ function startTunnel() {
   setInterval(reminderTick, 60e3);
   setInterval(dlvFlush, 3 * 60e3);
   setInterval(journeyTick, 2 * 60e3);
+  setTimeout(() => chatBackupTick(true), 90e3); setInterval(() => chatBackupTick(false), 30 * 60e3);
   setInterval(() => gcalTick(false), 60e3);
   setInterval(winbackTick, 60e3);
   setInterval(openRemindTick, 60e3);
