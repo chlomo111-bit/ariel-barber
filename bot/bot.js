@@ -214,9 +214,9 @@ const vars = (a, extra) => {
 };
 function calLink(a) {
   const st = toMin(a.time), en = st + (+a.dur || 30), stamp = m => a.date.replace(/-/g, "") + "T" + fromMin(m).replace(":", "") + "00";
-  const biz = (CFG.biz && CFG.biz.name) || "אריאל";
-  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent("תור אצל " + biz + (a.note ? " · " + a.note : "")) +
-    "&dates=" + stamp(st) + "/" + stamp(en) + "&ctz=Asia%2FJerusalem&location=" + encodeURIComponent((CFG.biz && CFG.biz.area) || "");
+  /* short link: the site opens the right calendar for the phone (Apple on iPhone, Google elsewhere) */
+  const sv = (CFG.services || []).find(s => s.name === String(a.note || "").replace(/ ⚠️.*$/, ""));
+  return siteUrl() + "?cal=" + a.date.replace(/-/g, "") + a.time.replace(":", "") + "-" + (en - st) + (sv ? "-" + sv.id : "");
 }
 
 /* ---------- availability (same rules as the site) ---------- */
@@ -522,6 +522,21 @@ async function winbackTick() {
       const to = pLocal(String(CFG.testAll));
       await updateFile("config.json", readConfig, writeConfig, c => { if (!c.testAll) return null; delete c.testAll; return c; }, "test all done");
       CFG = await readConfig(); if (phoneOk(to)) await testAllMessages(to);
+    } catch (e) { log("error", "בדיקה: " + e.message); } finally { wbBusy = false; }
+    return;
+  }
+  if (CFG.confirmTest) {
+    wbBusy = true;
+    try {
+      await updateFile("config.json", readConfig, writeConfig, c => { if (!c.confirmTest) return null; delete c.confirmTest; return c; }, "confirm test done");
+      CFG = await readConfig();
+      const d = new Date(); d.setDate(d.getDate() + 1);
+      for (const ph of adminPhones()) {
+        const a = { name: "דני", phone: ph, date: ymd(d), time: "18:00", dur: 30, note: ((CFG.services || [])[0] || {}).name || "תספורת גבר" };
+        await sendWA(ph, "🧪 דוגמה – הודעת אישור שהלקוח מקבל:\n\n" + fill(botSet().confirm, vars(a))).catch(e => log("error", "דוגמה נכשלה: " + e.message));
+        await new Promise(r => setTimeout(r, 4000));
+      }
+      log("test", "דוגמת אישור נשלחה למנהלים");
     } catch (e) { log("error", "בדיקה: " + e.message); } finally { wbBusy = false; }
     return;
   }
