@@ -1169,6 +1169,12 @@ $("addons").addEventListener("click",function(e){var b=e.target.closest(".chip")
 $("svcNext").addEventListener("click",function(){if(!sel.svc)return;$("ticket").innerHTML=ticketHtml(false);formChanged();show("sDet",1)});
 /* ---- automatic booking through the WhatsApp bot (falls back to the manual WhatsApp message) ---- */
 var botOn=false,otpSent=false,botBusy=false;
+/* trusted device: after one verified booking, the same phone books here without a code */
+var DEV_KEY="arielDev";
+function pNorm(p){p=String(p||"").replace(/\D/g,"");if(p.indexOf("972")===0)p="0"+p.slice(3);return p}
+function devGet(){try{return JSON.parse(localStorage.getItem(DEV_KEY)||"null")}catch(_){return null}}
+function devSet(v){try{v?localStorage.setItem(DEV_KEY,JSON.stringify(v)):localStorage.removeItem(DEV_KEY)}catch(_){}}
+function trusted(){var d=devGet();return !!(botOn&&d&&d.dtok&&d.phone===pNorm($("fphone").value))}
 function botCall(path,data){
   var ctl=window.AbortController?new AbortController():null,tm=setTimeout(function(){if(ctl)ctl.abort()},15000);
   return fetch(cfg.botUrl+path,{method:data?"POST":"GET",headers:data?{"Content-Type":"application/json"}:{},body:data?JSON.stringify(data):undefined,signal:ctl?ctl.signal:undefined})
@@ -1179,21 +1185,22 @@ function checkBot(){
   botCall("/health").then(function(j){botOn=j.ok&&j.wa==="open";setBookUi()}).catch(function(){botOn=false;setBookUi()});
 }
 function setBookUi(){
-  $("otpWrap").hidden=!(botOn&&otpSent);
+  $("otpWrap").hidden=!(botOn&&otpSent)||trusted();
   var inbox=!botOn&&!!cfg.inboxUrl;
   var LG=" <a href=\"#privacy\" data-legal=\"priv\">מדיניות הפרטיות</a> · <a href=\"#terms\" data-legal=\"terms\">תקנון</a>";
   if(inbox){$("fineTxt").innerHTML="התור נשמר מיד ביומן של "+esc(cfg.biz.name)+", ותקבל אישור בוואטסאפ."+LG;$("toConfirm").textContent="קביעת התור";formChanged();return}
   $("fineTxt").innerHTML=botOn?"נשלח אליך קוד בוואטסאפ כדי לוודא שהמספר שלך. אחרי האישור התור נקבע מיד, ותקבל אישור ותזכורת."+LG:"הבקשה נשלחת מהוואטסאפ שלך, כך <span class=\"bizname\">"+esc(cfg.biz.name)+"</span> רואה שהמספר אמיתי. התור נסגר רק אחרי שהוא מאשר לך בחזרה."+LG;
-  $("toConfirm").textContent=botOn?(otpSent?"אישור וקביעת התור":"שלחו לי קוד בוואטסאפ"):"שליחת בקשה לתור";
+  $("toConfirm").textContent=botOn?(trusted()||otpSent?"קביעת התור":"שלחו לי קוד בוואטסאפ"):"שליחת בקשה לתור";
+  if(trusted())$("fineTxt").innerHTML="המספר שלך כבר מאומת במכשיר הזה – התור נקבע מיד, ותקבל אישור ותזכורת בוואטסאפ."+LG;
   formChanged();
 }
 function bookMsg(t,ok){var m=$("bookMsg");m.textContent=t||"";m.className="msg"+(t?(ok?" ok":" bad"):"")}
 function formChanged(){sel.name=$("fname").value;sel.phone=$("fphone").value;phoneFeedback();
   var base=sel.name.trim()&&phoneOk(sel.phone)&&sel.time&&sel.svc;
-  if(botOn&&otpSent)base=base&&/^\d{4}$/.test($("fcode").value.trim());
+  if(botOn&&otpSent&&!trusted())base=base&&/^\d{4}$/.test($("fcode").value.trim());
   $("toConfirm").disabled=!base||botBusy}
 $("fname").addEventListener("input",formChanged);
-$("fphone").addEventListener("input",function(){if(otpSent){otpSent=false;$("fcode").value="";setBookUi()}formChanged()});
+$("fphone").addEventListener("input",function(){if(otpSent){otpSent=false;$("fcode").value=""}setBookUi();formChanged()});
 $("fcode").addEventListener("input",function(){this.value=this.value.replace(/\D/g,"").slice(0,4);formChanged();if(this.value.length===4&&!botBusy)$("form").requestSubmit&&$("form").requestSubmit()});
 function sendOtp(){
   botBusy=true;formChanged();bookMsg("שולח קוד…",true);
@@ -1209,10 +1216,12 @@ function sendOtp(){
 $("resendBtn").addEventListener("click",function(){if(!botBusy)sendOtp()});
 function bookNow(){
   botBusy=true;formChanged();bookMsg("קובע את התור…",true);
-  botCall("/book",{phone:sel.phone,code:$("fcode").value.trim(),name:sel.name.trim(),day:sel.day,time:sel.time,svc:sel.svc,src:refGet(),mk:!!$("fmk").checked}).then(function(j){
+  var dv=trusted()?devGet().dtok:undefined;
+  botCall("/book",{phone:sel.phone,code:dv?undefined:$("fcode").value.trim(),dtok:dv,name:sel.name.trim(),day:sel.day,time:sel.time,svc:sel.svc,src:refGet(),mk:!!$("fmk").checked}).then(function(j){
     botBusy=false;
-    if(j.ok){bookMsg("");lastBook={id:j.id,ctok:j.ctok};cfg.busy.push({d:sel.day,s:sel.time,m:(svcById(sel.svc)||{}).dur||30});showDone(true);return}
+    if(j.ok){bookMsg("");if(j.dtok)devSet({phone:pNorm(sel.phone),dtok:j.dtok});lastBook={id:j.id,ctok:j.ctok};cfg.busy.push({d:sel.day,s:sel.time,m:(svcById(sel.svc)||{}).dur||30});showDone(true);return}
     var e=j.error;
+    if(e==="dtok"){devSet(null);otpSent=false;setBookUi();formChanged();sendOtp();return}
     if(e==="code")bookMsg("הקוד לא נכון. בדקו ונסו שוב.");
     else if(e==="expired"){otpSent=false;setBookUi();bookMsg("הקוד פג תוקף. שלחו קוד חדש.")}
     else if(e==="taken"){bookMsg("השעה הזו נתפסה הרגע. בחרו שעה אחרת.");cfg.busy.push({d:sel.day,s:sel.time,m:30});sel.time=null;otpSent=false;setTimeout(function(){renderSlots();show("sTime",-1)},1500)}
@@ -1223,7 +1232,7 @@ function bookNow(){
   }).catch(function(){botBusy=false;bookMsg("אין חיבור. נסו שוב.");formChanged()});
 }
 $("form").addEventListener("submit",function(e){e.preventDefault();formChanged();if($("toConfirm").disabled)return;
-  if(botOn){if(!otpSent)sendOtp();else bookNow();return}
+  if(botOn){if(trusted()||otpSent)bookNow();else sendOtp();return}
   if(cfg.inboxUrl){inboxBook();return}
   showDone(false);
 });

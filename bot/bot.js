@@ -135,6 +135,8 @@ async function writeStore(docs, msg) {
 }
 /* admin pages prove they hold the data key */
 const adminKey = () => createHash("sha256").update("ariel-bot:" + (dataKeyRaw ? b64e(dataKeyRaw) : ADMIN_PASSWORD)).digest("hex");
+/* "trusted device": after one verified booking the site keeps this token, so the same phone on the same device books without a code */
+const devTok = phone => createHash("sha256").update("dev:" + adminKey() + ":" + phone).digest("hex").slice(0, 32);
 const live = a => a && a.status !== "cancelled";
 const busyFrom = docs => { const today = ymd(new Date()); return Object.values(docs).filter(a => live(a) && a.date && a.time && a.date >= today).map(a => ({ d: a.date, s: a.time, m: +a.dur || 0 })); };
 async function changeStore(apply, msg) {
@@ -705,8 +707,12 @@ const server = http.createServer(async (req, res) => {
 
     if (p === "/book" && req.method === "POST") {
       const b = await body(req), phone = pLocal(b.phone), o = OTP.get(phone);
-      if (!o || o.exp < Date.now()) return send(res, 400, { error: "expired" });
-      if (String(b.code || "").trim() !== o.code) { o.tries++; if (o.tries >= 5) OTP.delete(phone); return send(res, 400, { error: "code" }); }
+      const trusted = phoneOk(phone) && typeof b.dtok === "string" && b.dtok.length === 32 && b.dtok === devTok(phone);
+      if (b.dtok && !trusted) return send(res, 400, { error: "dtok" });
+      if (!trusted) {
+        if (!o || o.exp < Date.now()) return send(res, 400, { error: "expired" });
+        if (String(b.code || "").trim() !== o.code) { o.tries++; if (o.tries >= 5) OTP.delete(phone); return send(res, 400, { error: "code" }); }
+      } else if (tooMany("dtok-ph:" + phone, 5, 3600e3)) return send(res, 429, { error: "rate" });
       const name = String(b.name || "").trim().slice(0, 40);
       if (!name) return send(res, 400, { error: "name" });
       CFG = await readConfig();
@@ -734,7 +740,7 @@ const server = http.createServer(async (req, res) => {
       setTimeout(() => gcalTick(true), 1500);
       if (st.sendConfirm) sendWA(phone, fill(st.confirm, vars(rec))).catch(e => log("error", "אישור ללקוח נכשל: " + e.message));
       if (st.notifyAdmin) for (const ph of adminPhones()) sendWA(ph, fill(st.adminNew, vars(rec))).catch(e => log("error", "הודעה למנהל " + ph + " נכשלה: " + e.message));
-      return send(res, 200, { ok: true, id: newId, ctok });
+      return send(res, 200, { ok: true, id: newId, ctok, dtok: devTok(phone) });
     }
 
     /* customer cancels from "התורים שלי" with the private token he got when booking */
