@@ -186,6 +186,7 @@ svg.i{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-widt
 .check circle{fill:none;stroke:var(--gold);stroke-width:3;stroke-dasharray:252;stroke-dashoffset:252;animation:draw .7s ease forwards}
 .check path{fill:none;stroke:var(--gold-lt);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:60;stroke-dashoffset:60;animation:draw .45s .6s ease forwards}
 @keyframes draw{to{stroke-dashoffset:0}}
+.remember{display:flex;align-items:center;gap:10px;margin:2px 0 14px;font-weight:600;cursor:pointer}.remember input{width:20px;height:20px;accent-color:var(--gold)}
 .dbadge{position:relative;width:200px;height:200px;margin:4px auto 0}
 .dring{position:absolute;inset:0;border-radius:50%;background:repeating-conic-gradient(var(--gold) 0 14deg,#f4ead2 14deg 22deg);animation:dspin 14s linear infinite;-webkit-mask:radial-gradient(circle,transparent 0 60%,#000 61%);mask:radial-gradient(circle,transparent 0 60%,#000 61%);box-shadow:0 0 40px rgba(201,164,92,.35)}
 .dbadge::before{content:"";position:absolute;inset:9px;border-radius:50%;border:3px solid var(--gold-dk)}
@@ -737,6 +738,7 @@ body.adm .wa-fab{display:none}
       <div class="field"><label for="lgUser">שם משתמש</label><input id="lgUser" dir="ltr" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="ariel"></div>
       <div class="field"><label for="lgPass">סיסמה</label><input id="lgPass" type="password" autocomplete="current-password"></div>
       <div class="field" id="pass2Wrap"><label for="lgPass2">סיסמה שוב (בפעם הראשונה)</label><input id="lgPass2" type="password" autocomplete="new-password"></div>
+      <label class="remember"><input type="checkbox" id="lgRemember" checked> להישאר מחובר במכשיר הזה</label>
       <button class="btn primary" style="width:100%" id="lgBtn" type="submit">כניסה</button>
       <div class="msg" id="lgMsg" aria-live="polite"></div>
       <button class="ownerlink" id="lgReset" type="button" hidden>להזין מפתח GitHub חדש במכשיר הזה</button>
@@ -1420,6 +1422,20 @@ async function importInbox(){
 }
 setInterval(function(){if(ghToken&&!$("admin").hidden&&!editingNote)loadStore().then(function(){emit();return importInbox()}).catch(function(){})},60000);
 
+/* ---- remember me: password encrypted with a non-extractable device key (IndexedDB), 30 days ---- */
+var REM_KEY="arielAdmRem",REM_DAYS=30;
+function devKey(){return new Promise(function(res,rej){var r=indexedDB.open("arielAdm",1);r.onupgradeneeded=function(){r.result.createObjectStore("k")};r.onerror=function(){rej(r.error)};
+  r.onsuccess=function(){var db=r.result,g=db.transaction("k").objectStore("k").get("dev");g.onerror=function(){rej(g.error)};g.onsuccess=async function(){
+    if(g.result)return res(g.result);
+    try{var k=await crypto.subtle.generateKey({name:"AES-GCM",length:256},false,["encrypt","decrypt"]);var t=db.transaction("k","readwrite");t.objectStore("k").put(k,"dev");t.oncomplete=function(){res(k)};t.onerror=function(){rej(t.error)}}catch(e){rej(e)}}}})}
+async function remSave(u,pass){var k=await devKey(),iv=crypto.getRandomValues(new Uint8Array(12)),c=await crypto.subtle.encrypt({name:"AES-GCM",iv:iv},k,new TextEncoder().encode(pass));
+  localStorage.setItem(REM_KEY,JSON.stringify({u:u,iv:b64e(iv),c:b64e(c),t:Date.now()}))}
+function remClear(){try{localStorage.removeItem(REM_KEY)}catch(_){}}
+async function remLoad(){var o=JSON.parse(localStorage.getItem(REM_KEY)||"null");if(!o)return null;if(Date.now()-o.t>REM_DAYS*864e5){remClear();return null}
+  var k=await devKey(),p=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64d(o.iv)},k,b64d(o.c));return{u:o.u,p:new TextDecoder().decode(p)}}
+var remTried=false;
+async function remAuto(){if(remTried)return;remTried=true;try{var r=await remLoad();if(!r||!storedTok(r.u))return;$("lgUser").value=r.u;$("lgPass").value=r.p;$("tokWrap").hidden=true;$("pass2Wrap").hidden=true;$("lgRemember").checked=true;$("lgMsg").textContent="מתחבר אוטומטית…";$("loginForm").requestSubmit()}catch(_){remClear()}}
+
 /* ---- login ---- */
 function tokKey(u){return TOK_KEY+":"+String(u||"").trim().toLowerCase()}
 function lastUser(){try{return localStorage.getItem(TOK_KEY+":last")||""}catch(_){return ""}}
@@ -1430,6 +1446,7 @@ function showLogin(){
   $("tokWrap").hidden=has;$("pass2Wrap").hidden=has;$("lgReset").hidden=!has;$("lgMsg").textContent="";$("lgPass").value="";$("lgPass2").value="";
   $("login").hidden=false;document.body.style.overflow="hidden";document.body.classList.add("adm");
   setTimeout(function(){try{(!$("lgUser").value?$("lgUser"):has?$("lgPass"):$("lgTok")).focus()}catch(_){}},50);
+  remAuto();
 }
 $("lgUser").addEventListener("change",function(){var has=!!storedTok(this.value);$("tokWrap").hidden=has;$("pass2Wrap").hidden=has;$("lgReset").hidden=!has});
 function hideLogin(){$("login").hidden=true;document.body.style.overflow="";document.body.classList.remove("adm")}
@@ -1446,7 +1463,7 @@ $("loginForm").addEventListener("submit",async function(e){
     if(st){try{ghToken=await decryptStr(pass,st)}catch(_){
       var own=null;try{own=localStorage.getItem(tokKey(user))}catch(_){}
       if(!own){try{localStorage.removeItem(TOK_KEY)}catch(_){};$("tokWrap").hidden=false;$("pass2Wrap").hidden=false;$("lgReset").hidden=true;return fail("משתמש חדש במכשיר הזה: הדבק את מפתח GitHub והקלד את הסיסמה פעמיים.")}
-      return fail("סיסמה שגויה.")}}
+      remClear();return fail("סיסמה שגויה.")}}
     else{
       var tk=$("lgTok").value.trim();if(!tk)return fail("צריך להדביק מפתח GitHub.");
       if(pass!==$("lgPass2").value)return fail("שתי הסיסמאות לא זהות.");
@@ -1456,11 +1473,12 @@ $("loginForm").addEventListener("submit",async function(e){
     try{await loadPubCfg()}catch(err){ghToken=null;return fail(err.status===401||err.status===403?"מפתח GitHub לא תקין או בלי הרשאה למאגר.":"אין חיבור ל-GitHub. נסה שוב.")}
     try{await loadStore()}catch(err){ghToken=null;return fail(err.code==="nouser"?"שם המשתמש לא קיים. משתמש מנהל יכול להוסיף אותו בלשונית כללי.":"שם משתמש או סיסמה שגויים.")}
     try{localStorage.setItem(tokKey(user),JSON.stringify(await encryptStr(pass,ghToken)));localStorage.setItem(TOK_KEY+":last",user)}catch(_){}
+    try{if($("lgRemember").checked)await remSave(user,pass);else remClear()}catch(_){}
     if(needsSave)mutate(function(){},"secure data for users").catch(function(){});
     btn.disabled=false;hideLogin();db=ghDb;uid="admin";openAdmin("cal");setTimeout(importInbox,500);
   }catch(err){fail("משהו השתבש. נסה שוב.")}
 });
-$("admLogout").addEventListener("click",function(){ghToken=null;ghPass=null;ghUser=null;dek=null;dekRaw=null;keysMap={};botKey=null;botStat=null;store={};appts=[];cmeta={};db=null;listeners=[];closeAdmin()});
+$("admLogout").addEventListener("click",function(){remClear();remTried=true;ghToken=null;ghPass=null;ghUser=null;dek=null;dekRaw=null;keysMap={};botKey=null;botStat=null;store={};appts=[];cmeta={};db=null;listeners=[];closeAdmin()});
 if(location.hash==="#admin")setTimeout(showLogin,300);
 async function connectDb(){
   if(!db)return;
