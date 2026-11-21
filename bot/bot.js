@@ -39,6 +39,9 @@ const BOT_PHONE = String(process.env.BOT_PHONE || "").replace(/\D/g, "").replace
 const PUBLIC_URL = process.env.PUBLIC_URL || ""; // optional fixed address (named tunnel); empty = free quick tunnel
 if (!GH_TOKEN || !ADMIN_USER || !ADMIN_PASSWORD) { console.error("GH_TOKEN, ADMIN_USER ו-ADMIN_PASSWORD חובה בקובץ .env"); process.exit(1); }
 const AUTH_DIR = path.join(__dirname, "wa-session");
+/* server-only test key: written next to the bot (readable by root only), never sent anywhere */
+const LOCAL_KEY = require("node:crypto").randomBytes(24).toString("hex");
+try { fs.writeFileSync(path.join(__dirname, ".local-test-key"), LOCAL_KEY, { mode: 0o600 }); } catch (_) {}
 
 /* ---------- small helpers ---------- */
 const pad = n => (n < 10 ? "0" : "") + n;
@@ -702,6 +705,19 @@ const server = http.createServer(async (req, res) => {
     const p = url.pathname;
 
     if (p === "/health") return send(res, 200, { ok: true, wa: waState });
+
+    /* test message from the server itself (Centre des bots / test-bots.sh): never through the public tunnel, key file required, admins only */
+    if (p === "/local/test" && req.method === "POST") {
+      if (req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.headers["x-local-key"] !== LOCAL_KEY) return send(res, 403, { error: "forbidden" });
+      const b = await body(req), ph = pLocal(b.phone || "");
+      const list = ph ? adminPhones().filter(x => x === ph) : adminPhones();
+      if (!list.length) return send(res, 400, { error: "not admin" });
+      try {
+        for (const x of list) await sendWA(x, "🧪 בדיקה מהשרת ✅\nהבוט של " + vars({}).biz + " מחובר ועובד.\n" + new Date().toLocaleString("he-IL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }));
+        log("test", "הודעת בדיקה מהשרת נשלחה ל-" + list.join(", "));
+        return send(res, 200, { ok: true });
+      } catch (e) { return send(res, 503, { error: e.code || e.message }); }
+    }
 
     if (p === "/otp" && req.method === "POST") {
       const b = await body(req), phone = pLocal(b.phone);
