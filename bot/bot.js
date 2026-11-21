@@ -361,14 +361,14 @@ async function startWA() {
       }
       if (!BOT_PHONE) { console.log("\nסרוק את הקוד עם הוואטסאפ של מספר הבוט (מכשירים מקושרים):"); qrTerm.generate(u.qr, { small: true }); }
     }
-    if (u.connection === "open") { waState = "open"; lastQr = null; pairCode = null; me = sock.user && sock.user.id ? sock.user.id.split(":")[0].split("@")[0] : null; log("wa", "מחובר לוואטסאפ" + (me ? " (" + me + ")" : "")); }
+    if (u.connection === "open") { waState = "open"; lastQr = null; pairCode = null; me = sock.user && sock.user.id ? sock.user.id.split(":")[0].split("@")[0] : null; log("wa", "מחובר לוואטסאפ" + (me ? " (" + me + ")" : "")); statusOpen(); }
     if (u.connection === "close") {
       const code = u.lastDisconnect && u.lastDisconnect.error && u.lastDisconnect.error.output ? u.lastDisconnect.error.output.statusCode : 0;
       if (code === DisconnectReason.loggedOut) {
         waState = "loggedout"; log("wa", "הבוט נותק מהוואטסאפ. צריך לסרוק QR מחדש.");
         fs.rmSync(AUTH_DIR, { recursive: true, force: true }); pairAsked = false; pairCode = null; setTimeout(startWA, 2000);
       } else {
-        waState = "reconnecting"; pairAsked = false;
+        waState = "reconnecting"; pairAsked = false; if (wasOpenOnce) droppedAt = droppedAt || Date.now();
         if (sock && sock.authState && !sock.authState.creds.registered) fs.rmSync(AUTH_DIR, { recursive: true, force: true });
         setTimeout(startWA, 3000);
       }
@@ -706,14 +706,10 @@ const server = http.createServer(async (req, res) => {
 
     if (p === "/health") return send(res, 200, { ok: true, wa: waState });
 
-    /* alert from the Centre des bots (another bot went down / came back): same protection as /local/test, admins only */
-    if (p === "/local/notify" && req.method === "POST") {
+    /* the Centre des bots announces a stop/restart before doing it: same protection as /local/test */
+    if (p === "/local/bye" && req.method === "POST") {
       if (req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.headers["x-local-key"] !== LOCAL_KEY) return send(res, 403, { error: "forbidden" });
-      const b = await body(req), text = String(b.text || "").trim().slice(0, 1000), ph = pLocal(b.phone || "");
-      const list = ph ? adminPhones().filter(x => x === ph) : [];
-      if (!text || !list.length) return send(res, 400, { error: "bad" });
-      try { for (const x of list) await sendWA(x, text); return send(res, 200, { ok: true }); }
-      catch (e) { return send(res, 503, { error: e.code || e.message }); }
+      const b = await body(req); return send(res, 200, { ok: await statusBye(b.kind === "stop" ? "stop" : "restart") });
     }
 
     /* test message from the server itself (Centre des bots / test-bots.sh): never through the public tunnel, key file required, admins only */
@@ -1048,6 +1044,23 @@ function startTunnel() {
   cf.on("error", () => { log("error", "cloudflared לא מותקן. התקן עם: brew install cloudflared"); });
   cf.on("exit", c => { log("tunnel", "המנהרה נסגרה (" + c + "), פותח מחדש…"); setTimeout(startTunnel, 5000); });
 }
+
+/* ---------- status announcements (to the server owner): before stop/restart, on start, on reconnect ---------- */
+const STATUS_PHONES = String(process.env.STATUS_PHONES || "0536670760").split(/[,\s]+/).map(x => pLocal(x)).filter(Boolean);
+let wasOpenOnce = false, droppedAt = 0, byeSent = false;
+const hm = () => new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" });
+const botName = () => { try { return vars({}).biz || "הבוט"; } catch { return "הבוט"; } };
+async function statusSend(text) { for (const x of STATUS_PHONES) { try { await sendWA(x, text); } catch (e) { log("error", "הודעת סטטוס נכשלה: " + e.message); } } }
+function statusOpen() {
+  if (!wasOpenOnce) { wasOpenOnce = true; setTimeout(() => statusSend("▶️ הבוט של " + botName() + " הופעל ומחובר · " + hm()), 4000); return; }
+  if (droppedAt) { const m = Math.max(1, Math.round((Date.now() - droppedAt) / 60000)); droppedAt = 0; if (m >= 2) setTimeout(() => statusSend("🟢 הבוט של " + botName() + " חזר להיות מחובר · " + hm() + " (מנותק " + m + " דק׳)"), 4000); }
+}
+async function statusBye(kind) {
+  if (byeSent || waState !== "open") return false; byeSent = true;
+  await statusSend((kind === "stop" ? "⏸️ הבוט של " + botName() + " נעצר עכשיו" : "🔄 הבוט של " + botName() + " מופעל מחדש, חוזר בעוד דקה") + " · " + hm());
+  return true;
+}
+for (const sig of ["SIGTERM", "SIGINT"]) process.on(sig, async () => { try { await Promise.race([statusBye(fs.existsSync(path.join(__dirname, ".stopping")) ? "stop" : "restart"), new Promise(r => setTimeout(r, 1200))]); } catch {} try { fs.rmSync(path.join(__dirname, ".stopping"), { force: true }); } catch {} process.exit(0); });
 
 /* ---------- go ---------- */
 (async () => {
