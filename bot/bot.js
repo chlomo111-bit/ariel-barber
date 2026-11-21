@@ -706,6 +706,16 @@ const server = http.createServer(async (req, res) => {
 
     if (p === "/health") return send(res, 200, { ok: true, wa: waState });
 
+    /* alert from the Centre des bots (another bot went down / came back): same protection as /local/test, admins only */
+    if (p === "/local/notify" && req.method === "POST") {
+      if (req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.headers["x-local-key"] !== LOCAL_KEY) return send(res, 403, { error: "forbidden" });
+      const b = await body(req), text = String(b.text || "").trim().slice(0, 1000), ph = pLocal(b.phone || "");
+      const list = ph ? adminPhones().filter(x => x === ph) : [];
+      if (!text || !list.length) return send(res, 400, { error: "bad" });
+      try { for (const x of list) await sendWA(x, text); return send(res, 200, { ok: true }); }
+      catch (e) { return send(res, 503, { error: e.code || e.message }); }
+    }
+
     /* test message from the server itself (Centre des bots / test-bots.sh): never through the public tunnel, key file required, admins only */
     if (p === "/local/test" && req.method === "POST") {
       if (req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.headers["x-local-key"] !== LOCAL_KEY) return send(res, 403, { error: "forbidden" });
